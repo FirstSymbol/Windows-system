@@ -1,0 +1,13 @@
+{
+  "name": "com.firstsymbol.windowssystem",
+  "displayName": "Windows system",
+  "description": "A system for managing UI groups using windows.",
+  "version": "0.1.0",
+  "documentationUrl": "https://github.com/FirstSymbol/Windows-system.git",
+  "dependencies": {
+  },
+  "author": {
+    "name": "FirstSymbol",
+    "url": "https://linkedin.com/in/firstsymbol"
+  }
+}
