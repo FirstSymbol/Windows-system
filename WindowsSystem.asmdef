@@ -1,6 +1,5 @@
 {
     "name": "WindowsSystem",
-    "rootNamespace": "FirstSymbol",
     "references": [
         "GUID:0aedc7aaeb42600439e2028a9f534fcf",
         "GUID:2d979afacd3449849a5fca601a23e960",
