@@ -61,9 +61,12 @@ namespace WindowsSystem
       OnAfterHide?.Invoke(GetType());
     }
 
-    public async void Toggle()
+    public async void Toggle(bool isForce = false)
     {
-      await Hide(true);
+      if (IsShowing)
+        await Hide(isForce);
+      else
+        await Show(isForce);
     }
 
     /// <summary>
@@ -108,15 +111,7 @@ namespace WindowsSystem
 
     protected virtual async void StartAction()
     {
-      if (IsShowing || gameObject.activeSelf)
-      {
-        gameObject.SetActive(false);
-        await Hide();
-      }
-      else
-      {
-        IsShowing = false;
-      }
+      await Hide(true);
     }
 
     protected virtual void DestroyAction()
