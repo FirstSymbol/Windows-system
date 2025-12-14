@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using ExtDebugLogger;
 using WindowsSystem.Log;
 using Zenject;
 
@@ -92,7 +93,7 @@ namespace WindowsSystem
             _windows.Add(typeof(T), window);
             window.OnAfterHide += OnAfterWindowHide;
             window.OnAfterShow += OnAfterShow;
-            Logger.Log($"Registering window of type {typeof(T).ToString().Split('.')[^1]}", LogTag.WindowsService);
+            Logger.Log($"Registering window of type {typeof(T).ToString().Split('.')[^1]}", WSLogTag.WindowsService);
         }
 
         public void UnregisterWindow<T>(WindowBase<T> window) where T : IWindowBase
@@ -100,7 +101,7 @@ namespace WindowsSystem
             _windows.Remove(typeof(T));
             window.OnAfterHide -= OnAfterWindowHide;
             window.OnAfterShow -= OnAfterShow;
-            Logger.Log($"Unregistering window of type {typeof(T).ToString().Split('.')[^1]}", LogTag.WindowsService);
+            Logger.Log($"Unregistering window of type {typeof(T).ToString().Split('.')[^1]}", WSLogTag.WindowsService);
         }
 
         private void OnAfterShow(Type windowType) =>

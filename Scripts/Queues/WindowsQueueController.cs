@@ -1,4 +1,5 @@
 ﻿using System;
+using ExtDebugLogger;
 using WindowsSystem.Log;
 
 namespace WindowsSystem
@@ -27,11 +28,11 @@ namespace WindowsSystem
 
             if (_mainQueue.Run())
             {
-                Logger.Log($"Windows queue is run!", LogTag.WindowsQueueController);
+                Logger.Log($"Windows queue is run!", WSLogTag.WindowsQueueController);
             }
             else
             {
-                Logger.Error($"Windows queue run is aborted!", LogTag.WindowsQueueController);
+                Logger.Error($"Windows queue run is aborted!", WSLogTag.WindowsQueueController);
             }
         }
 
@@ -45,11 +46,11 @@ namespace WindowsSystem
         {
             if (_mainQueue.AddWindowByTypeIn(type))
             {
-                Logger.Log($"A new window '{type.ToString().Split('.')[^1]}' has been successfully added to the window queue.", LogTag.WindowsQueueController);
+                Logger.Log($"A new window '{type.ToString().Split('.')[^1]}' has been successfully added to the window queue.", WSLogTag.WindowsQueueController);
             }
             else
             {
-                Logger.Error($"Couldn't add window '{type.ToString().Split('.')[^1]}' was not added to the queue because the window does not exist in the context of the scene.", LogTag.WindowsQueueController);
+                Logger.Error($"Couldn't add window '{type.ToString().Split('.')[^1]}' was not added to the queue because the window does not exist in the context of the scene.", WSLogTag.WindowsQueueController);
             }
         }
 
@@ -57,20 +58,18 @@ namespace WindowsSystem
         {
             if (_mainQueue.AddWindowIn(window))
             {
-                Logger.Log($"A new window '{window.GetType().ToString().Split('.')[^1]}' has been successfully added to the window queue.", LogTag.WindowsQueueController);
+                Logger.Log($"A new window '{window.GetType().ToString().Split('.')[^1]}' has been successfully added to the window queue.", WSLogTag.WindowsQueueController);
             }
             else
             {
-                Logger.Warn($"Couldn't add window '{window.GetType().ToString().Split('.')[^1]}' was not added to the queue because it already exists.", LogTag.WindowsQueueController);
+                Logger.Warn($"Couldn't add window '{window.GetType().ToString().Split('.')[^1]}' was not added to the queue because it already exists.", WSLogTag.WindowsQueueController);
             }
         }
 
         private void OnQueueFinished()
         {
             _mainQueue.OnQueueFinished -= OnQueueFinished;
-#if DEV
-            Logger.Log($"Windows queue is finished!", LogTag.WindowsQueueController);
-#endif
+            Logger.Log($"Windows queue is finished!", WSLogTag.WindowsQueueController);
         }
     }
 }
