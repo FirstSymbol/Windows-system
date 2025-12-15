@@ -11,6 +11,18 @@ namespace WindowsSystem
   public abstract class WindowBase<T> : MonoBehaviour, IWindowBase where T : IWindowBase
   {
     [field: SerializeField] public GraphicRaycaster interactionsParents;
+    
+    public Action<Type> OnBeforeShow { get; set; }
+    public Action<Type> OnBeforeHide { get; set; }
+    public Action<Type> OnAfterShow { get; set; }
+    public Action<Type> OnAfterHide { get; set; }
+
+    [ShowInInspector] [ReadOnly] public bool IsShowing { get; protected set; }
+    [ShowInInspector] [ReadOnly] public bool IsInteractable => !interactionsParents || interactionsParents.enabled;
+    [ShowInInspector] [ReadOnly] public bool InQueue { get; set; } = false;
+    [ShowInInspector] [ReadOnly] public int QueuePriority { get; protected set; } = 0;
+
+    public IWindowsService WindowService { get; private set; }
 
     protected virtual void Awake()
     {
@@ -28,19 +40,7 @@ namespace WindowsSystem
       WindowService.UnregisterWindow(this);
       DestroyAction();
     }
-
-    public Action<Type> OnBeforeShow { get; set; }
-    public Action<Type> OnBeforeHide { get; set; }
-    public Action<Type> OnAfterShow { get; set; }
-    public Action<Type> OnAfterHide { get; set; }
-
-    [ShowInInspector] [ReadOnly] public bool IsShowing { get; protected set; }
-    [ShowInInspector] [ReadOnly] public bool IsInteractable => !interactionsParents || interactionsParents.enabled;
-    [ShowInInspector] [ReadOnly] public bool InQueue { get; set; } = false;
-    [ShowInInspector] [ReadOnly] public int QueuePriority { get; protected set; } = 0;
-
-    public IWindowsService WindowService { get; private set; }
-
+    
     [Group("Buttons")]
     [Button("Show window")]
     public async UniTask Show(bool isForce = false)
