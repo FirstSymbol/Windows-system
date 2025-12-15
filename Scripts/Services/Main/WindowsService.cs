@@ -22,6 +22,7 @@ namespace WindowsSystem
         public IWindowBase GetWindow(Type type);
         public bool TryGetWindow<TWindow>(out TWindow window) where TWindow : class, IWindowBase;
         public bool TryGetWindow(Type type, out IWindowBase window);
+        public bool TryGetWindow(Type type, out IPooledWindow window);
         public bool ExistWindow(Type type);
     }
 
@@ -64,6 +65,13 @@ namespace WindowsSystem
 
         public bool TryGetWindow(Type type, out IWindowBase window) =>
             _windows.TryGetValue(type, out window);
+        
+        public bool TryGetWindow(Type type, out IPooledWindow window)
+        {
+            _windows.TryGetValue(type, out var nativeWindow);
+            window = nativeWindow as IPooledWindow;
+            return window != null;;
+        }
 
         public async void ShowWindow(Type type)
         {

@@ -10,6 +10,7 @@ namespace WindowsSystem
     where TData : struct
   {
     protected abstract IDictionary<int, TData> WindowData { get; }
+    protected abstract TData DefaultData { get; set; }
 
     protected abstract void ExtractAction(in TData data);
 
@@ -23,15 +24,10 @@ namespace WindowsSystem
           RemoveData(index);
       }
     }
+    
+    public void ReturnToDefault() => ExtractAction(DefaultData);
 
-    protected virtual void RemoveData(int value)
-    {
-      if (!InQueue)
-      {
-        WindowData.Remove(value);
-        return;
-      }
-      Logger.Warn("You cannot delete data from a window if the window is in the queue!", WSLogTag.WindowsService);
-    }
+    protected virtual void RemoveData(int value) => 
+      WindowData.Remove(value);
   }
 }

@@ -54,16 +54,22 @@ namespace WindowsSystem
             }
         }
 
-        public void AddWindowInQueue(IWindowBase window)
+        public void AddWindowInQueue(IWindowBase window) => 
+            WindowInQueue(new QueueWindowItem(window));
+
+        public void AddWindowInQueue(IPooledWindow window, int index, bool removeAfterExtract, bool returnToDefault = true) => 
+            WindowInQueue(new (window, index, removeAfterExtract, returnToDefault));
+
+        private void WindowInQueue(in QueueWindowItem queueWindowItem)
         {
-            if (_mainQueue.AddWindowIn(window))
-            {
-                Logger.Log($"A new window '{window.GetType().ToString().Split('.')[^1]}' has been successfully added to the window queue.", WSLogTag.WindowsQueueController);
-            }
+            if (_mainQueue.AddWindowItemIn(in queueWindowItem))
+                Logger.Log(
+                    $"A new window '{queueWindowItem.WindowBase.GetType().ToString().Split('.')[^1]}' has been successfully added to the window queue.",
+                    WSLogTag.WindowsQueueController);
             else
-            {
-                Logger.Warn($"Couldn't add window '{window.GetType().ToString().Split('.')[^1]}' was not added to the queue because it already exists.", WSLogTag.WindowsQueueController);
-            }
+                Logger.Warn(
+                    $"Couldn't add window '{queueWindowItem.WindowBase.GetType().ToString().Split('.')[^1]}' was not added to the queue because it already exists.",
+                    WSLogTag.WindowsQueueController);
         }
 
         private void OnQueueFinished()
