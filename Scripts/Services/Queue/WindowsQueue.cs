@@ -7,7 +7,7 @@ namespace WindowsSystem
 {
   public class WindowsQueue
   {
-    private readonly HashSet<IWindowBase> _existWindows = new();
+    private readonly Dictionary<IWindowBase, int> _existWindows = new();
     private readonly Dictionary<int, Queue<QueueWindowItem>> _queueItems = new();
     private readonly IWindowsService WindowsService;
     private int _currentQueueIndex;
@@ -33,21 +33,27 @@ namespace WindowsSystem
     public bool AddWindowItemIn(in QueueWindowItem windowItem)
     {
       ValidatePriority(windowItem.WindowBase.QueuePriority);
-      if (!windowItem.isPooled && ExistWindowInQueue(windowItem.WindowBase))
+      
+      bool isExists = ExistWindowInQueue(windowItem.WindowBase);
+      if (!windowItem.isPooled && isExists)
         return false;
+      if (windowItem.isPooled && isExists)
+        _existWindows[windowItem.WindowBase] += 1;
+      else
+        _existWindows.Add(windowItem.WindowBase, 1);
+      
       _queueItems[windowItem.WindowBase.QueuePriority].Enqueue(windowItem);
       windowItem.WindowBase.InQueue = true;
       if (IsRunning)
         UpdateQueue(windowItem.WindowBase.QueuePriority);
       else
         WindowsService.QueueController.RunQueue();
-      _existWindows.Add(windowItem.WindowBase);
       return true;
     }
 
     public bool ExistWindowInQueue(IWindowBase window)
     {
-      return _existWindows.Contains(window);
+      return _existWindows.ContainsKey(window);
     }
 
     public void ValidatePriority(int priority)
@@ -100,9 +106,7 @@ namespace WindowsSystem
     public async void Next(Type type = null)
     {
       UnSubscribeWindow();
-      var oldItem = _queueItems[_currentQueueIndex].Dequeue();
-      _existWindows.Remove(oldItem.WindowBase);
-      oldItem.Resolve.Invoke();
+      RemoveCurrentItem();
       if (_queueItems[_currentQueueIndex].IsEmpty())
       {
         GoToNextPriorityGroup();
@@ -114,6 +118,16 @@ namespace WindowsSystem
       queueItem.Init.Invoke();
       await queueItem.WindowBase.Show();
       queueItem.WindowBase.InQueue = false;
+    }
+
+    private void RemoveCurrentItem()
+    {
+      var oldItem = _queueItems[_currentQueueIndex].Dequeue();
+      _existWindows[oldItem.WindowBase] -= 1;
+      oldItem.Resolve.Invoke();
+      if (_existWindows[oldItem.WindowBase] > 0)
+        return;
+      _existWindows.Remove(oldItem.WindowBase);
     }
 
     public void Stop()

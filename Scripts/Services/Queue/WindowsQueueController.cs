@@ -55,12 +55,12 @@ namespace WindowsSystem
         }
 
         public void AddWindowInQueue(IWindowBase window) => 
-            WindowInQueue(new QueueWindowItem(window));
+            PutWindowInQueue(new QueueWindowItem(window));
 
         public void AddWindowInQueue(IPooledWindow window, int index, bool removeAfterExtract, bool returnToDefault = true) => 
-            WindowInQueue(new (window, index, removeAfterExtract, returnToDefault));
+            PutWindowInQueue(new QueueWindowItem(window, index, removeAfterExtract, returnToDefault));
 
-        private void WindowInQueue(in QueueWindowItem queueWindowItem)
+        private void PutWindowInQueue(in QueueWindowItem queueWindowItem)
         {
             if (_mainQueue.AddWindowItemIn(in queueWindowItem))
                 Logger.Log(
