@@ -4,7 +4,8 @@
     "references": [
         "TriInspector",
         "UniTask",
-        "Zenject"
+        "Zenject",
+        "ExtDebugLogger"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
