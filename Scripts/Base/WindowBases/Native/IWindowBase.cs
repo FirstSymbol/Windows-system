@@ -9,8 +9,11 @@ namespace WindowsSystem
     public Action<Type> OnBeforeHide { get; set; }
     public Action<Type> OnAfterShow { get; set; }
     public Action<Type> OnAfterHide { get; set; }
+    public bool IsSpawned { get; set; }
+    public bool DisableShowHideActionsOnStart { get; set; }
     public UniTask Show(bool isForce = false);
     public UniTask Hide(bool isForce = false);
+    public UniTask Close(bool isForce = false);
     public void Toggle(bool isForce = false);
     public bool IsShowing { get; }
     public bool InQueue { get; set; }

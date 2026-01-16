@@ -16,6 +16,16 @@ namespace WindowsSystem
     public Action<Type> OnBeforeHide { get; set; }
     public Action<Type> OnAfterShow { get; set; }
     public Action<Type> OnAfterHide { get; set; }
+    
+    /// <summary>
+    /// True if window is spawned from service.
+    /// </summary>
+    public bool IsSpawned { get; set; } = false;
+    
+    /// <summary>
+    /// True if window is spawned from service.
+    /// </summary>
+    public bool DisableShowHideActionsOnStart { get; set; } = false;
 
     [ShowInInspector] [ReadOnly] public bool IsShowing { get; protected set; }
     [ShowInInspector] [ReadOnly] public bool IsInteractable => !interactionsParents || interactionsParents.enabled;
@@ -61,6 +71,13 @@ namespace WindowsSystem
       OnAfterHide?.Invoke(GetType());
     }
 
+    [Group("Buttons")]
+    [Button("Close window")]
+    public async UniTask Close(bool isForce = false)
+    {
+      await HideAction(isForce);
+      Destroy(gameObject);
+    }
     public async void Toggle(bool isForce = false)
     {
       if (IsShowing)
@@ -111,7 +128,10 @@ namespace WindowsSystem
 
     protected virtual async void StartAction()
     {
-      await Hide(true);
+      if (!DisableShowHideActionsOnStart)
+      {
+        await Hide(true);
+      }
     }
 
     protected virtual void DestroyAction()

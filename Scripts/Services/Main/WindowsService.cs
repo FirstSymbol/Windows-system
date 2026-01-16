@@ -1,8 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
-using ExtDebugLogger;
+using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
+using UnityEngine;
+using Windows_system.Scripts.Providers;
 using WindowsSystem.Log;
 using Zenject;
+using Logger = ExtDebugLogger.Logger;
+using Object = UnityEngine.Object;
 
 namespace WindowsSystem
 {
@@ -12,7 +17,8 @@ namespace WindowsSystem
         public HashSet<Type> ShowedWindows { get; } = new();
         public WindowsQueueController QueueController { get; }
 
-        [Inject]
+        [Inject] private IWindowsProvider _windowsProvider;
+        
         public WindowsService()
         {
             QueueController = new WindowsQueueController(this);
@@ -53,28 +59,83 @@ namespace WindowsSystem
             return window != null;
         }
 
-        public async void ShowWindow(Type type)
+        public async Task<bool> ShowWindow(Type type)
         {
             if (_windows.TryGetValue(type, out var window))
+            {
                 await window.Show();
+                return true;
+            }
+            return false;
         }
 
-        public async void HideWindow(Type type)
+        public async Task<bool> HideWindow(Type type)
         {
             if (_windows.TryGetValue(type, out var window))
+            {
                 await window.Hide();
+                return true;
+            }
+            return false;
         }
 
-        public void ToggleWindow(Type type)
+        public bool CloseWindow(Type type)
         {
             if (_windows.TryGetValue(type, out var window))
-                window.Toggle();
+            {
+                window.Close();
+                return true;
+            }
+            return false;
         }
 
-        public void ShowWindow<T>() where T : IWindowBase => ShowWindow(typeof(T));
+        public bool ToggleWindow(Type type)
+        {
+            if (_windows.TryGetValue(type, out var window))
+            {
+                window.Toggle();
+                return true;
+            }
+            return false;
+        }
 
-        public void HideWindow<T>() where T : IWindowBase => HideWindow(typeof(T));
-        public void ToggleWindow<T>() where T : IWindowBase => ToggleWindow(typeof(T));
+        public TWindow OpenWindow<TWindow>(Vector2 anchoredPosition, RectTransform parent) where TWindow : MonoBehaviour, IWindowBase
+        {
+            TWindow window = SpawnWindow<TWindow>(anchoredPosition,  parent);
+            
+            if (window == null)
+                return window;
+            
+            window.DisableShowHideActionsOnStart = true;
+            window.Show().Forget();
+
+            return window;
+        }
+        
+        public TWindow SpawnWindow<TWindow>(Vector2 anchoredPosition, RectTransform parent) where TWindow : MonoBehaviour, IWindowBase
+        {
+            TWindow windowPrefab = _windowsProvider.GetWindowPrefab<TWindow>();
+            if (windowPrefab == null)
+            {
+                Logger.Warn("Could not find window prefab in windowsProvider.", WSLogTag.WindowsService);
+                return null;
+            }
+            
+            TWindow window = Object.Instantiate(windowPrefab, anchoredPosition, Quaternion.identity, parent);
+            window.IsSpawned = true;
+            
+            return window;
+        }
+
+        public Task<bool> ShowWindow<T>() where T : IWindowBase => ShowWindow(typeof(T));
+
+        public Task<bool> HideWindow<T>() where T : IWindowBase => HideWindow(typeof(T));
+        public bool CloseWindow<T>() where T : IWindowBase
+        {
+            return CloseWindow(typeof(T));
+        }
+
+        public bool ToggleWindow<T>() where T : IWindowBase => ToggleWindow(typeof(T));
 
         public void RegisterWindow<T>(WindowBase<T> window) where T : IWindowBase
         {
