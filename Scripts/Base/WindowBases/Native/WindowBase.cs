@@ -16,6 +16,7 @@ namespace WindowsSystem
     public Action<Type> OnBeforeHide { get; set; }
     public Action<Type> OnAfterShow { get; set; }
     public Action<Type> OnAfterHide { get; set; }
+    public Action<Type> OnAfterClose { get; set; }
     
     /// <summary>
     /// True if window is spawned from service.
@@ -82,6 +83,7 @@ namespace WindowsSystem
     public async UniTask Close(bool isForce = false)
     {
       await HideAction(isForce);
+      OnAfterClose?.Invoke(GetType());
       Destroy(gameObject);
     }
     public async void Toggle(bool isForce = false)
