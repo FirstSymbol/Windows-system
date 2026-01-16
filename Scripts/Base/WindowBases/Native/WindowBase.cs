@@ -7,7 +7,7 @@ using Zenject;
 
 namespace WindowsSystem
 {
-  [DeclareBoxGroup("Buttons")]
+  [DeclareBoxGroup("Base Buttons")]
   public abstract class WindowBase<T> : MonoBehaviour, IWindowBase where T : IWindowBase
   {
     [field: SerializeField] public GraphicRaycaster interactionsParents;
@@ -34,6 +34,12 @@ namespace WindowsSystem
 
     public IWindowsService WindowService { get; private set; }
 
+    [Inject]
+    protected virtual void Inject(IWindowsService windowsService)
+    {
+      WindowService = windowsService;
+    }
+    
     protected virtual void Awake()
     {
       AwakeAction();
@@ -51,7 +57,7 @@ namespace WindowsSystem
       DestroyAction();
     }
     
-    [Group("Buttons")]
+    [Group("Base Buttons")]
     [Button("Show window")]
     public async UniTask Show(bool isForce = false)
     {
@@ -61,7 +67,7 @@ namespace WindowsSystem
       OnAfterShow?.Invoke(GetType());
     }
 
-    [Group("Buttons")]
+    [Group("Base Buttons")]
     [Button("Hide window")]
     public async UniTask Hide(bool isForce = false)
     {
@@ -71,7 +77,7 @@ namespace WindowsSystem
       OnAfterHide?.Invoke(GetType());
     }
 
-    [Group("Buttons")]
+    [Group("Base Buttons")]
     [Button("Close window")]
     public async UniTask Close(bool isForce = false)
     {
@@ -115,28 +121,16 @@ namespace WindowsSystem
     {
       if (interactionsParents) interactionsParents.enabled = !interactionsParents.enabled;
     }
-
-    [Inject]
-    protected virtual void Inject(IWindowsService windowsService)
-    {
-      WindowService = windowsService;
-    }
-
     protected virtual void AwakeAction()
     {
     }
 
     protected virtual async void StartAction()
     {
-      if (!DisableShowHideActionsOnStart)
-      {
-        await Hide(true);
-      }
+      if (!DisableShowHideActionsOnStart) await Hide(true);
     }
 
-    protected virtual void DestroyAction()
-    {
-    }
+    protected virtual void DestroyAction() { }
 
     protected virtual UniTask ShowAction(bool isForce)
     {

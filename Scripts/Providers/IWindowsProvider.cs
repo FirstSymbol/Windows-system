@@ -1,7 +1,7 @@
 ﻿using UnityEngine;
 using WindowsSystem;
 
-namespace Windows_system.Scripts.Providers
+namespace WindowsSystem.Providers
 {
   public interface IWindowsProvider
   {
