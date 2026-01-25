@@ -23,7 +23,7 @@ namespace WindowsSystem
     
     public TWindow SpawnWindow<TWindow>(Vector2 anchoredPosition, RectTransform parent)
       where TWindow : MonoBehaviour, IWindowBase;
-    public TWindow OpenWindow<TWindow>(Vector2 anchoredPosition, RectTransform parent)
+    public TWindow OpenWindow<TWindow>(Vector2 anchoredPosition, RectTransform parent, bool disableShowHide = true)
       where TWindow : MonoBehaviour, IWindowBase;
     public bool CloseWindow(Type type);
     public bool CloseWindow<T>() where T : IWindowBase;

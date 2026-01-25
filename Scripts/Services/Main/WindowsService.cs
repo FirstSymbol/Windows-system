@@ -117,7 +117,7 @@ namespace WindowsSystem
       return window;
     }
 
-    public TWindow OpenWindow<TWindow>(Vector2 anchoredPosition, RectTransform parent)
+    public TWindow OpenWindow<TWindow>(Vector2 anchoredPosition, RectTransform parent, bool disableShowHide = true)
       where TWindow : MonoBehaviour, IWindowBase
     {
       var window = SpawnWindow<TWindow>(anchoredPosition, parent);
@@ -125,7 +125,7 @@ namespace WindowsSystem
       if (window == null)
         return window;
 
-      window.DisableShowHideActionsOnStart = true;
+      window.DisableShowHideActionsOnStart = disableShowHide;
       window.Show().Forget();
 
       return window;
