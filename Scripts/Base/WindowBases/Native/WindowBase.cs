@@ -3,6 +3,8 @@ using Cysharp.Threading.Tasks;
 using TriInspector;
 using UnityEngine;
 using UnityEngine.UI;
+using WindowsSystem.Scripts.Base.AnimAction;
+using WindowsSystem.Scripts.DefaultPresets.AnimActions;
 using Zenject;
 
 namespace WindowsSystem
@@ -11,6 +13,9 @@ namespace WindowsSystem
   public abstract class WindowBase<T> : MonoBehaviour, IWindowBase where T : IWindowBase
   {
     [field: SerializeField] public GraphicRaycaster interactionsParents;
+    
+    [field: SerializeReference] protected HideAction hideAction;
+    [field: SerializeReference] protected ShowAction showAction;
     
     public Action<Type> OnBeforeShow { get; set; }
     public Action<Type> OnBeforeHide { get; set; }
@@ -43,7 +48,16 @@ namespace WindowsSystem
     
     protected virtual void Awake()
     {
+      AnimActionInit();
       AwakeAction();
+    }
+
+    private void AnimActionInit()
+    {
+      hideAction ??= new InstantHide();
+      showAction ??= new InstantShow();
+      showAction.gameObject ??= gameObject;
+      hideAction.gameObject ??= gameObject;
     }
 
     protected virtual void Start()
@@ -63,7 +77,7 @@ namespace WindowsSystem
     public async UniTask Show(bool isForce = false)
     {
       OnBeforeShow?.Invoke(GetType());
-      await ShowAction(isForce);
+      await showAction.Show(isForce);
       IsShowing = true;
       OnAfterShow?.Invoke(GetType());
     }
@@ -73,7 +87,7 @@ namespace WindowsSystem
     public async UniTask Hide(bool isForce = false)
     {
       OnBeforeHide?.Invoke(GetType());
-      await HideAction(isForce);
+      await hideAction.Hide(isForce);
       IsShowing = false;
       OnAfterHide?.Invoke(GetType());
     }
@@ -82,7 +96,7 @@ namespace WindowsSystem
     [Button("Close window")]
     public async UniTask Close(bool isForce = false)
     {
-      await HideAction(isForce);
+      await hideAction.Hide(isForce);
       OnAfterClose?.Invoke(GetType());
       Destroy(gameObject);
     }
@@ -133,17 +147,5 @@ namespace WindowsSystem
     }
 
     protected virtual void DestroyAction() { }
-
-    protected virtual UniTask ShowAction(bool isForce)
-    {
-      gameObject.SetActive(true);
-      return default;
-    }
-
-    protected virtual UniTask HideAction(bool isForce)
-    {
-      gameObject.SetActive(false);
-      return default;
-    }
   }
 }
