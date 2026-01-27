@@ -14,8 +14,8 @@ namespace WindowsSystem
   {
     [field: SerializeField] public GraphicRaycaster interactionsParents;
     
-    [field: SerializeReference] protected HideAction hideAction;
-    [field: SerializeReference] protected ShowAction showAction;
+    [field: SerializeReference] protected HideAction hideAction = new InstantHide();
+    [field: SerializeReference] protected ShowAction showAction = new InstantShow();
     
     public Action<Type> OnBeforeShow { get; set; }
     public Action<Type> OnBeforeHide { get; set; }
