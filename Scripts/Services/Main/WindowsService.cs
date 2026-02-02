@@ -112,6 +112,7 @@ namespace WindowsSystem
       }
 
       var window = Object.Instantiate(windowPrefab, anchoredPosition, Quaternion.identity, parent);
+      window.GetComponent<RectTransform>().anchoredPosition = anchoredPosition;
       window.IsSpawned = true;
 
       return window;
