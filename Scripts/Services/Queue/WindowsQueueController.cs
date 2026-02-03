@@ -15,6 +15,11 @@ namespace WindowsSystem
             _mainQueue = new WindowsQueue(windowsService);
         }
 
+        public bool ExistWindowsInQueue(IWindowBase window)
+        {
+            return _mainQueue.ExistWindowInQueue(window);
+        }
+        
         public void Next() => _mainQueue?.Next();
 
         public void RunQueue()
@@ -54,11 +59,20 @@ namespace WindowsSystem
             }
         }
 
-        public void AddWindowInQueue(IWindowBase window) => 
+        public async void AddWindowInQueue(IWindowBase window, bool hideIfFirstEntry = false, bool hideForce = false)
+        {
+            if (window.IsShowing && hideIfFirstEntry && !ExistWindowsInQueue(window)) 
+                await window.Hide(hideForce);
             PutWindowInQueue(new QueueWindowItem(window));
+        }
 
-        public void AddWindowInQueue(IPooledWindow window, int index, bool removeAfterExtract, bool returnToDefault = true) => 
+        public async void AddWindowInQueue(IPooledWindow window, int index, bool removeAfterExtract,
+            bool returnToDefault = true, bool hideIfFirstEntry = true, bool hideForce = false)
+        {
+            if (window.IsShowing && hideIfFirstEntry && !ExistWindowsInQueue(window)) 
+                await window.Hide(hideForce);
             PutWindowInQueue(new QueueWindowItem(window, index, removeAfterExtract, returnToDefault));
+        }
 
         private void PutWindowInQueue(in QueueWindowItem queueWindowItem)
         {

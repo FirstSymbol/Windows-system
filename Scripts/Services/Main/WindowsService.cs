@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using WindowsSystem.Log;
@@ -13,6 +12,7 @@ namespace WindowsSystem
 {
   public class WindowsService : IWindowsService
   {
+    public RectTransform defaultSpawnParent;
     [Inject] private IWindowsProvider _windowsProvider;
 
     public WindowsService()
@@ -111,6 +111,8 @@ namespace WindowsSystem
         return null;
       }
 
+      parent ??= defaultSpawnParent;
+      
       var window = Object.Instantiate(windowPrefab, anchoredPosition, Quaternion.identity, parent);
       window.GetComponent<RectTransform>().anchoredPosition = anchoredPosition;
       window.IsSpawned = true;
@@ -118,15 +120,17 @@ namespace WindowsSystem
       return window;
     }
 
-    public TWindow OpenWindow<TWindow>(Vector2 anchoredPosition, RectTransform parent, bool disableShowHide = true)
+    public async UniTask<TWindow> OpenWindow<TWindow>(Vector2 anchoredPosition, RectTransform parent, bool disableShowHide = true)
       where TWindow : MonoBehaviour, IWindowBase
     {
       var window = SpawnWindow<TWindow>(anchoredPosition, parent);
+      window.gameObject.SetActive(false);
 
       if (window == null)
         return window;
 
       window.DisableShowHideActionsOnStart = disableShowHide;
+      await window.Hide(true);
       window.Show().Forget();
 
       return window;
@@ -153,7 +157,7 @@ namespace WindowsSystem
 
     #region Show & Hide
 
-    public async Task<bool> ShowWindow(Type type)
+    public async UniTask<bool> ShowWindow(Type type)
     {
       if (Windows.TryGetValue(type, out var window))
       {
@@ -164,7 +168,7 @@ namespace WindowsSystem
       return false;
     }
 
-    public async Task<bool> HideWindow(Type type)
+    public async UniTask<bool> HideWindow(Type type)
     {
       if (Windows.TryGetValue(type, out var window))
       {
@@ -186,12 +190,12 @@ namespace WindowsSystem
       return false;
     }
 
-    public Task<bool> ShowWindow<T>() where T : IWindowBase
+    public UniTask<bool> ShowWindow<T>() where T : IWindowBase
     {
       return ShowWindow(typeof(T));
     }
 
-    public Task<bool> HideWindow<T>() where T : IWindowBase
+    public UniTask<bool> HideWindow<T>() where T : IWindowBase
     {
       return HideWindow(typeof(T));
     }

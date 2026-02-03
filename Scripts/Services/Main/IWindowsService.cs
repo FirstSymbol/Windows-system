@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 
 namespace WindowsSystem
@@ -23,16 +23,16 @@ namespace WindowsSystem
     
     public TWindow SpawnWindow<TWindow>(Vector2 anchoredPosition, RectTransform parent)
       where TWindow : MonoBehaviour, IWindowBase;
-    public TWindow OpenWindow<TWindow>(Vector2 anchoredPosition, RectTransform parent, bool disableShowHide = true)
+    public UniTask<TWindow> OpenWindow<TWindow>(Vector2 anchoredPosition, RectTransform parent, bool disableShowHide = true)
       where TWindow : MonoBehaviour, IWindowBase;
     public bool CloseWindow(Type type);
     public bool CloseWindow<T>() where T : IWindowBase;
     
-    public Task<bool> ShowWindow(Type type);
-    public Task<bool> HideWindow(Type type);
+    public UniTask<bool> ShowWindow(Type type);
+    public UniTask<bool> HideWindow(Type type);
     public bool ToggleWindow(Type type);
-    public Task<bool> ShowWindow<T>() where T : IWindowBase;
-    public Task<bool> HideWindow<T>() where T : IWindowBase;
+    public UniTask<bool> ShowWindow<T>() where T : IWindowBase;
+    public UniTask<bool> HideWindow<T>() where T : IWindowBase;
     public bool ToggleWindow<T>() where T : IWindowBase;
   }
 }

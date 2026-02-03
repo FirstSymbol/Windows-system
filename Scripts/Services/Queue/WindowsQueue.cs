@@ -41,7 +41,7 @@ namespace WindowsSystem
         _existWindows[windowItem.WindowBase] += 1;
       else
         _existWindows.Add(windowItem.WindowBase, 1);
-      
+
       _queueItems[windowItem.WindowBase.QueuePriority].Enqueue(windowItem);
       windowItem.WindowBase.InQueue = true;
       if (IsRunning)

@@ -9,13 +9,14 @@ using Zenject;
 
 namespace WindowsSystem
 {
-  [DeclareBoxGroup("Base Buttons")]
+  [DeclareFoldoutGroup("Base Buttons")]
+  [DeclareFoldoutGroup("Interaction Buttons")]
   public abstract class WindowBase<T> : MonoBehaviour, IWindowBase where T : IWindowBase
   {
     [field: SerializeField] public GraphicRaycaster interactionsParents;
     
-    [field: SerializeReference] protected HideAction hideAction = new InstantHide();
     [field: SerializeReference] protected ShowAction showAction = new InstantShow();
+    [field: SerializeReference] protected HideAction hideAction = new InstantHide();
     
     public Action<Type> OnBeforeShow { get; set; }
     public Action<Type> OnBeforeHide { get; set; }
@@ -100,6 +101,14 @@ namespace WindowsSystem
       OnAfterClose?.Invoke(GetType());
       Destroy(gameObject);
     }
+    
+    [Button]
+    [Group("Base Buttons")]
+    public void AddInQueue(bool hideIfFirstEntry = false, bool hideForce = false)
+    {
+      WindowService.QueueController.AddWindowInQueue(this, hideIfFirstEntry, hideForce);
+    }
+    
     public async void Toggle(bool isForce = false)
     {
       if (IsShowing)
@@ -111,7 +120,7 @@ namespace WindowsSystem
     /// <summary>
     ///   Enable interaction GraphicRaycaster component.
     /// </summary>
-    [Group("Buttons")]
+    [Group("Interaction Buttons")]
     [Button("Enable Interaction")]
     public void EnableInteract()
     {
@@ -121,7 +130,7 @@ namespace WindowsSystem
     /// <summary>
     ///   Disable interaction GraphicRaycaster component.
     /// </summary>
-    [Group("Buttons")]
+    [Group("Interaction Buttons")]
     [Button("Disable Interaction")]
     public void DisableInteract()
     {
@@ -131,7 +140,7 @@ namespace WindowsSystem
     /// <summary>
     ///   Toggle interaction GraphicRaycaster component.
     /// </summary>
-    [Group("Buttons")]
+    [Group("Interaction Buttons")]
     [Button("Toggle Interaction")]
     public void ToggleInteract()
     {

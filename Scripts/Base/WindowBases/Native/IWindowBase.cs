@@ -15,6 +15,7 @@ namespace WindowsSystem
     public UniTask Show(bool isForce = false);
     public UniTask Hide(bool isForce = false);
     public UniTask Close(bool isForce = false);
+    public void AddInQueue(bool hideIfFirstEntry = false, bool hideForce = false);
     public void Toggle(bool isForce = false);
     public bool IsShowing { get; }
     public bool InQueue { get; set; }
