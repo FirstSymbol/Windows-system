@@ -11,5 +11,36 @@
    - From package manager - https://github.com/FirstSymbol/Windows-system.git
    - From file - download and drop in project folder. 
 
-## How to use
-...
+## Examples
+
+### Initializations
+``
+### Basic use
+``
+
+# Documentation
+## Windows
+
+---
+### ExampleClassName
+
+---
+### Description
+Some description `text`.
+### Usage
+```csharp
+private int variable;
+```
+
+## Queue
+
+---
+### ExampleClassName
+
+---
+### Description
+Some description `text`.
+### Usage
+```csharp
+private int variable;
+```
