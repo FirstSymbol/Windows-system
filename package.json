@@ -2,7 +2,7 @@
   "name": "com.firstsymbol.windowssystem",
   "displayName": "Windows system",
   "description": "A system for managing UI groups using windows.",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "documentationUrl": "https://github.com/FirstSymbol/Windows-system.git",
   "dependencies": {
   },
