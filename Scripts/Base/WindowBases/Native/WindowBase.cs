@@ -152,7 +152,7 @@ namespace WindowsSystem
 
     protected virtual async void StartAction()
     {
-      if (!DisableShowHideActionsOnStart) await Hide(true);
+      if (!DisableShowHideActionsOnStart) await Hide();
     }
 
     protected virtual void DestroyAction() { }
