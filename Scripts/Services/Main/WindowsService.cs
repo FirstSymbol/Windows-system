@@ -23,7 +23,12 @@ namespace WindowsSystem
     public Dictionary<Type, IWindowBase> Windows { get; } = new();
     public HashSet<Type> ShownWindows { get; } = new();
     public WindowsQueueController QueueController { get; }
-
+    
+    public void Init(IWindowsProvider windowsProvider)
+    {
+      _windowsProvider = windowsProvider;
+    }
+    
     #region Registering
 
     public void RegisterWindow<T>(WindowBase<T> window) where T : IWindowBase
