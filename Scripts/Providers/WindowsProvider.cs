@@ -32,7 +32,7 @@ namespace WindowsSystem.Providers
 
     public void OnAfterDeserialize()
     {
-      
+      windowsObjects = _windows.Values.Select(t=> t.gameObject).ToList();
     }
     
     public T GetWindowPrefab<T>() where T : MonoBehaviour, IWindowBase

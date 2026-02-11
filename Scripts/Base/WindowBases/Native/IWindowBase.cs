@@ -1,10 +1,12 @@
 ﻿using System;
 using Cysharp.Threading.Tasks;
+using UnityEngine;
 
 namespace WindowsSystem
 {
   public interface IWindowBase
   {
+    GameObject gameObject { get; }
     public Action<Type> OnBeforeShow { get; set; }
     public Action<Type> OnBeforeHide { get; set; }
     public Action<Type> OnAfterShow { get; set; }
