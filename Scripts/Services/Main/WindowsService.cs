@@ -4,7 +4,7 @@ using Cysharp.Threading.Tasks;
 using UnityEngine;
 using WindowsSystem.Log;
 using WindowsSystem.Providers;
-using Zenject;
+using WindowsSystem.Resolver;
 using Logger = ExtDebugLogger.Logger;
 using Object = UnityEngine.Object;
 
@@ -12,22 +12,38 @@ namespace WindowsSystem
 {
   public class WindowsService : IWindowsService
   {
+    internal static IWindowsService Instance { get; private set; }
     public RectTransform defaultSpawnParent;
-    [Inject] private IWindowsProvider _windowsProvider;
+    private IWindowsProvider _windowsProvider;
 
-    public WindowsService()
+    
+    
+    public WindowsService(IDependencyResolver resolver)
     {
+      if (Instance != null)
+      {
+        throw new InvalidOperationException("Duplicate WindowsService detected!");
+      }
+      Instance = this;
+      _windowsProvider = resolver.Resolve<IWindowsProvider>();
       QueueController = new WindowsQueueController(this);
     }
 
+    
+    
     public Dictionary<Type, IWindowBase> Windows { get; } = new();
     public HashSet<Type> ShownWindows { get; } = new();
     public WindowsQueueController QueueController { get; }
-    
-    public void Init(IWindowsProvider windowsProvider)
+
+    #region Infrastructure
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
     {
-      _windowsProvider = windowsProvider;
+      Instance = null;
     }
+
+    #endregion
     
     #region Registering
 

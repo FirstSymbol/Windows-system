@@ -5,7 +5,6 @@ using UnityEngine;
 using UnityEngine.UI;
 using WindowsSystem.Scripts.Base.AnimAction;
 using WindowsSystem.Scripts.DefaultPresets.AnimActions;
-using Zenject;
 
 namespace WindowsSystem
 {
@@ -40,12 +39,6 @@ namespace WindowsSystem
     [ShowInInspector] [ReadOnly] public int QueuePriority { get; protected set; } = 0;
 
     public IWindowsService WindowService { get; private set; }
-
-    [Inject]
-    protected virtual void Inject(IWindowsService windowsService)
-    {
-      WindowService = windowsService;
-    }
     
     protected virtual void Awake()
     {
@@ -63,6 +56,7 @@ namespace WindowsSystem
 
     protected virtual void Start()
     {
+      WindowService = WindowsService.Instance;
       WindowService.RegisterWindow(this);
       StartAction();
     }

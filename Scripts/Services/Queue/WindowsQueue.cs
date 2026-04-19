@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using ModestTree;
 
 namespace WindowsSystem
 {
@@ -107,7 +106,7 @@ namespace WindowsSystem
     {
       UnSubscribeWindow();
       RemoveCurrentItem();
-      if (_queueItems[_currentQueueIndex].IsEmpty())
+      if (_queueItems[_currentQueueIndex].Count == 0)
       {
         GoToNextPriorityGroup();
         return;

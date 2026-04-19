@@ -11,8 +11,6 @@ namespace WindowsSystem
     public Dictionary<Type, IWindowBase> Windows { get; }
     public WindowsQueueController QueueController { get; }
     public HashSet<Type> ShownWindows { get; }
-
-    public void Init(IWindowsProvider windowsProvider);
     public void RegisterWindow<T>(WindowBase<T> windowType) where T : IWindowBase;
     public void UnregisterWindow<T>(WindowBase<T> windowType) where T : IWindowBase;
     
