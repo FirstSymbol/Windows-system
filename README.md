@@ -5,6 +5,7 @@
 1. Install all dependencies plugins:
    - [UniTask](https://github.com/Cysharp/UniTask);
    - [TriInspector](https://github.com/codewriter-packages/Tri-Inspector);
+     - If you install this plugins from zip archive then you need put plugin forder in `Packages` folder.
    - [ExtDebugLogger](https://github.com/FirstSymbol/ExtDebugLogger).
 2. Download package
    - From package manager - https://github.com/FirstSymbol/Windows-system.git
