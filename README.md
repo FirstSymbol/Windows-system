@@ -4,7 +4,6 @@
 ## Installation
 1. Install all dependencies plugins:
    - [UniTask](https://github.com/Cysharp/UniTask);
-   - [Zenject (Extenject)](https://github.com/Mathijs-Bakker/Extenject);
    - [TriInspector](https://github.com/codewriter-packages/Tri-Inspector);
    - [ExtDebugLogger](https://github.com/FirstSymbol/ExtDebugLogger).
 2. Download package
