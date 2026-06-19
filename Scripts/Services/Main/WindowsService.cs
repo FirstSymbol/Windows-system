@@ -12,7 +12,8 @@ namespace WindowsSystem
 {
   public class WindowsService : IWindowsService
   {
-    internal static IWindowsService Instance { get; private set; }
+    public static IWindowsService Instance { get; private set; }
+    public static event Action OnInitialize;
     public RectTransform defaultSpawnParent;
     private IWindowsProvider _windowsProvider;
 
@@ -27,6 +28,7 @@ namespace WindowsSystem
       Instance = this;
       _windowsProvider = resolver.Resolve<IWindowsProvider>();
       QueueController = new WindowsQueueController(this);
+      OnInitialize?.Invoke();
     }
 
     
@@ -200,15 +202,15 @@ namespace WindowsSystem
       return false;
     }
 
-    public bool ToggleWindow(Type type)
+    public UniTask<bool> ToggleWindow(Type type)
     {
       if (Windows.TryGetValue(type, out var window))
       {
         window.Toggle();
-        return true;
+        return UniTask.FromResult(true);
       }
 
-      return false;
+      return UniTask.FromResult(false);
     }
 
     public UniTask<bool> ShowWindow<T>() where T : IWindowBase
@@ -221,9 +223,9 @@ namespace WindowsSystem
       return HideWindow(typeof(T));
     }
 
-    public bool ToggleWindow<T>() where T : IWindowBase
+    public async UniTask<bool> ToggleWindow<T>() where T : IWindowBase
     {
-      return ToggleWindow(typeof(T));
+      return await ToggleWindow(typeof(T));
     }
 
     #endregion

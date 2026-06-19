@@ -14,11 +14,11 @@ namespace WindowsSystem
     public Action<Type> OnAfterClose { get; set; }
     public bool IsSpawned { get; set; }
     public bool DisableShowHideActionsOnStart { get; set; }
-    public UniTask Show(bool isForce = false);
-    public UniTask Hide(bool isForce = false);
+    public UniTask Show(bool isForce = false, bool showIfAlreadyShowed = false);
+    public UniTask Hide(bool isForce = false, bool hideIfAlreadyHidden = false);
     public UniTask Close(bool isForce = false);
     public void AddInQueue(bool hideIfFirstEntry = false, bool hideForce = false);
-    public void Toggle(bool isForce = false);
+    public UniTask Toggle(bool isForce = false);
     public bool IsShowing { get; }
     public bool InQueue { get; set; }
     public IWindowsService WindowService { get; }

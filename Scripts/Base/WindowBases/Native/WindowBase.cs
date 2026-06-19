@@ -1,15 +1,17 @@
 ﻿using System;
 using Cysharp.Threading.Tasks;
-using TriInspector;
+
+#if ODIN_INSPECTOR
+using Sirenix.OdinInspector;
+#endif
 using UnityEngine;
 using UnityEngine.UI;
 using WindowsSystem.Scripts.Base.AnimAction;
 using WindowsSystem.Scripts.DefaultPresets.AnimActions;
+using Logger = ExtDebugLogger.Logger;
 
 namespace WindowsSystem
 {
-  [DeclareFoldoutGroup("Base Buttons")]
-  [DeclareFoldoutGroup("Interaction Buttons")]
   public abstract class WindowBase<T> : MonoBehaviour, IWindowBase where T : IWindowBase
   {
     [field: SerializeField] public GraphicRaycaster interactionsParents;
@@ -33,17 +35,49 @@ namespace WindowsSystem
     /// </summary>
     public bool DisableShowHideActionsOnStart { get; set; } = false;
 
-    [ShowInInspector] [ReadOnly] public bool IsShowing { get; protected set; }
-    [ShowInInspector] [ReadOnly] public bool IsInteractable => !interactionsParents || interactionsParents.enabled;
-    [ShowInInspector] [ReadOnly] public bool InQueue { get; set; } = false;
-    [ShowInInspector] [ReadOnly] public int QueuePriority { get; protected set; } = 0;
+#if ODIN_INSPECTOR
+    [ShowInInspector] [ReadOnly] 
+#else
+    [field: SerializeField]    
+#endif
+    public bool IsShowing { get; protected set; }
+#if ODIN_INSPECTOR
+    [ShowInInspector] [ReadOnly] 
+#else
+    [field: SerializeField]    
+#endif
+    public bool IsInteractable => !interactionsParents || interactionsParents.enabled;
+#if ODIN_INSPECTOR
+    [ShowInInspector] [ReadOnly] 
+#else
+    [field: SerializeField]    
+#endif
+    public bool InQueue { get; set; } = false;
+#if ODIN_INSPECTOR
+    [ShowInInspector] [ReadOnly] 
+#else
+    [field: SerializeField]    
+#endif
+    public int QueuePriority { get; protected set; } = 0;
 
     public IWindowsService WindowService { get; private set; }
     
     protected virtual void Awake()
     {
       AnimActionInit();
+      WindowService = WindowsService.Instance;
+      if (WindowService == null)
+        WindowsService.OnInitialize += WindowsServiceOnOnInitialize;
+      else
+        WindowsServiceOnOnInitialize();
+
       AwakeAction();
+    }
+
+    private void WindowsServiceOnOnInitialize()
+    {
+      WindowService.RegisterWindow(this);
+      WindowsService.OnInitialize -= WindowsServiceOnOnInitialize;
     }
 
     private void AnimActionInit()
@@ -56,39 +90,47 @@ namespace WindowsSystem
 
     protected virtual void Start()
     {
-      WindowService = WindowsService.Instance;
-      WindowService.RegisterWindow(this);
       StartAction();
     }
-
+    
     private void OnDestroy()
     {
-      WindowService.UnregisterWindow(this);
+      WindowService?.UnregisterWindow(this);
       DestroyAction();
     }
     
-    [Group("Base Buttons")]
+#if ODIN_INSPECTOR
+    [FoldoutGroup("Base Buttons")]
     [Button("Show window")]
-    public async UniTask Show(bool isForce = false)
+#endif
+    public async UniTask Show(bool isForce = false, bool showIfAlreadyShowed = false)
     {
+      if (!showIfAlreadyShowed && IsShowing)
+        return;
       OnBeforeShow?.Invoke(GetType());
       await showAction.Show(isForce);
       IsShowing = true;
       OnAfterShow?.Invoke(GetType());
     }
 
-    [Group("Base Buttons")]
+#if ODIN_INSPECTOR
+    [FoldoutGroup("Base Buttons")]
     [Button("Hide window")]
-    public async UniTask Hide(bool isForce = false)
+#endif
+    public async UniTask Hide(bool isForce = false, bool hideIfAlreadyHidden = false)
     {
+      if (!hideIfAlreadyHidden && !IsShowing)
+        return;
       OnBeforeHide?.Invoke(GetType());
       await hideAction.Hide(isForce);
       IsShowing = false;
       OnAfterHide?.Invoke(GetType());
     }
-
-    [Group("Base Buttons")]
+    
+#if ODIN_INSPECTOR
+    [FoldoutGroup("Base Buttons")]
     [Button("Close window")]
+#endif
     public async UniTask Close(bool isForce = false)
     {
       await hideAction.Hide(isForce);
@@ -96,14 +138,16 @@ namespace WindowsSystem
       Destroy(gameObject);
     }
     
+#if ODIN_INSPECTOR
+    [FoldoutGroup("Base Buttons")]
     [Button]
-    [Group("Base Buttons")]
+#endif
     public void AddInQueue(bool hideIfFirstEntry = false, bool hideForce = false)
     {
       WindowService.QueueController.AddWindowInQueue(this, hideIfFirstEntry, hideForce);
     }
     
-    public async void Toggle(bool isForce = false)
+    public async UniTask Toggle(bool isForce = false)
     {
       if (IsShowing)
         await Hide(isForce);
@@ -114,8 +158,10 @@ namespace WindowsSystem
     /// <summary>
     ///   Enable interaction GraphicRaycaster component.
     /// </summary>
-    [Group("Interaction Buttons")]
+#if ODIN_INSPECTOR
+    [FoldoutGroup("Interaction Buttons")]
     [Button("Enable Interaction")]
+#endif
     public void EnableInteract()
     {
       if (interactionsParents) interactionsParents.enabled = true;
@@ -124,8 +170,10 @@ namespace WindowsSystem
     /// <summary>
     ///   Disable interaction GraphicRaycaster component.
     /// </summary>
-    [Group("Interaction Buttons")]
+#if ODIN_INSPECTOR
+    [FoldoutGroup("Interaction Buttons")]
     [Button("Disable Interaction")]
+#endif
     public void DisableInteract()
     {
       if (interactionsParents) interactionsParents.enabled = false;
@@ -134,19 +182,21 @@ namespace WindowsSystem
     /// <summary>
     ///   Toggle interaction GraphicRaycaster component.
     /// </summary>
-    [Group("Interaction Buttons")]
+#if ODIN_INSPECTOR
+    [FoldoutGroup("Interaction Buttons")]
     [Button("Toggle Interaction")]
+#endif
     public void ToggleInteract()
     {
       if (interactionsParents) interactionsParents.enabled = !interactionsParents.enabled;
     }
-    protected virtual void AwakeAction()
+    protected virtual async void AwakeAction()
     {
     }
 
     protected virtual async void StartAction()
     {
-      if (!DisableShowHideActionsOnStart) await Hide();
+      if (!DisableShowHideActionsOnStart) await Hide(true, true);
     }
 
     protected virtual void DestroyAction() { }

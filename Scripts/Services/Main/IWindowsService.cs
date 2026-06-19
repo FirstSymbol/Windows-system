@@ -30,9 +30,9 @@ namespace WindowsSystem
     
     public UniTask<bool> ShowWindow(Type type);
     public UniTask<bool> HideWindow(Type type);
-    public bool ToggleWindow(Type type);
+    public UniTask<bool> ToggleWindow(Type type);
     public UniTask<bool> ShowWindow<T>() where T : IWindowBase;
     public UniTask<bool> HideWindow<T>() where T : IWindowBase;
-    public bool ToggleWindow<T>() where T : IWindowBase;
+    public UniTask<bool> ToggleWindow<T>() where T : IWindowBase;
   }
 }
