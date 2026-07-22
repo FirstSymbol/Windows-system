@@ -34,7 +34,8 @@ namespace WindowsSystem
     /// <summary>
     /// True if window is spawned from service.
     /// </summary>
-    public bool DisableShowHideActionsOnStart { get; set; } = false;
+    
+    [field: SerializeField] public bool ForceHideOnInit { get; set; } = true;
 
 #if ODIN_INSPECTOR
     [ShowInInspector] [ReadOnly] 
@@ -81,12 +82,14 @@ namespace WindowsSystem
       WindowsService.OnInitialize -= WindowsServiceOnOnInitialize;
     }
 
-    public override void Init()
+    public async override void Init()
     {
-      if (_isInitialized)
+      if (_isInitialized || gameObject == null)
         return;
       WindowService = WindowsService.Instance;
       WindowService.RegisterWindow(this);
+      if (ForceHideOnInit) await Hide(true, true);
+      else await Show(true, true);
       _isInitialized = true;
     }
 
@@ -105,7 +108,8 @@ namespace WindowsSystem
     
     private void OnDestroy()
     {
-      WindowService?.UnregisterWindow(this);
+      WindowService ??= WindowsService.Instance;
+      WindowService.UnregisterWindow(this);
       DestroyAction();
     }
     
@@ -206,7 +210,6 @@ namespace WindowsSystem
 
     protected virtual async void StartAction()
     {
-      if (!DisableShowHideActionsOnStart) await Hide(true, true);
     }
 
     protected virtual void DestroyAction() { }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -29,12 +30,22 @@ namespace WindowsSystem
       Instance = this;
       _windowsProvider = resolver.Resolve<IWindowsProvider>();
       QueueController = new WindowsQueueController(this);
+      SceneManager.sceneUnloaded += SceneManagerOnsceneUnloaded;
       SceneManager.sceneLoaded += SceneManagerOnsceneLoaded;
       OnInitialize?.Invoke();
     }
 
+    private void SceneManagerOnsceneUnloaded(Scene arg0)
+    {
+      foreach (var windowsKey in new List<Type>(Windows.Keys))
+      {
+        UnregisterWindow(windowsKey);
+      }
+    }
+
     ~WindowsService()
     {
+      SceneManager.sceneUnloaded -= SceneManagerOnsceneUnloaded;
       SceneManager.sceneLoaded -= SceneManagerOnsceneLoaded;
     }
 
@@ -62,20 +73,50 @@ namespace WindowsSystem
     
     #region Registering
 
+    public void RegisterWindow(IWindowBase window)
+    {
+      if (!Windows.TryAdd(window.GetType(), window))
+      {
+        Logger.Error($"Window is already exist.",WSLogTag.WindowsService);
+        return;
+      }
+      window.OnAfterHide += OnAfterWindowHide;
+      window.OnAfterShow += OnAfterShow;
+      Logger.Log($"Registering window of type {window.GetType().ToString().Split('.')[^1]}", WSLogTag.WindowsService);
+      
+    }
+    
     public void RegisterWindow<T>(WindowBase<T> window) where T : IWindowBase
     {
-      Windows.Add(typeof(T), window);
+      if (!Windows.TryAdd(typeof(T), window))
+      {
+        Logger.Error($"Window is already exist.",WSLogTag.WindowsService);
+        return;
+      }
       window.OnAfterHide += OnAfterWindowHide;
       window.OnAfterShow += OnAfterShow;
       Logger.Log($"Registering window of type {typeof(T).ToString().Split('.')[^1]}", WSLogTag.WindowsService);
     }
 
+    public void UnregisterWindow(Type type)
+    {
+      if (type.GetInterface(nameof(IWindowBase)) ==  null)
+        return;
+
+      if (Windows.TryGetValue(type, out var window))
+      {
+        if (!Windows.Remove(type))
+          return;
+        window.OnAfterHide -= OnAfterWindowHide;
+        window.OnAfterShow -= OnAfterShow;
+        Logger.Log($"Unregistering window of type {type.ToString().Split('.')[^1]}", WSLogTag.WindowsService);
+      }
+      
+    }
+    
     public void UnregisterWindow<T>(WindowBase<T> window) where T : IWindowBase
     {
-      Windows.Remove(typeof(T));
-      window.OnAfterHide -= OnAfterWindowHide;
-      window.OnAfterShow -= OnAfterShow;
-      Logger.Log($"Unregistering window of type {typeof(T).ToString().Split('.')[^1]}", WSLogTag.WindowsService);
+      UnregisterWindow(typeof(T));
     }
 
     private void OnAfterShow(Type windowType)
@@ -156,7 +197,7 @@ namespace WindowsSystem
       return window;
     }
 
-    public async UniTask<TWindow> OpenWindow<TWindow>(Vector2 anchoredPosition, RectTransform parent, bool disableShowHide = true)
+    public async UniTask<TWindow> OpenWindow<TWindow>(Vector2 anchoredPosition, RectTransform parent, bool forceHideOnInit = true)
       where TWindow : MonoBehaviour, IWindowBase
     {
       var window = SpawnWindow<TWindow>(anchoredPosition, parent);
@@ -165,7 +206,7 @@ namespace WindowsSystem
       if (window == null)
         return window;
 
-      window.DisableShowHideActionsOnStart = disableShowHide;
+      window.ForceHideOnInit = forceHideOnInit;
       await window.Hide(true);
       window.Show().Forget();
 
