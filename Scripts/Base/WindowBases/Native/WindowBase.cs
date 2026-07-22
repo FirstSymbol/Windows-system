@@ -12,7 +12,7 @@ using Logger = ExtDebugLogger.Logger;
 
 namespace WindowsSystem
 {
-  public abstract class WindowBase<T> : MonoBehaviour, IWindowBase where T : IWindowBase
+  public abstract class WindowBase<T> : WindowBaseInterlayer, IWindowBase where T : IWindowBase
   {
     [field: SerializeField] public GraphicRaycaster interactionsParents;
     
@@ -29,6 +29,7 @@ namespace WindowsSystem
     /// True if window is spawned from service.
     /// </summary>
     public bool IsSpawned { get; set; } = false;
+    
     
     /// <summary>
     /// True if window is spawned from service.
@@ -76,8 +77,17 @@ namespace WindowsSystem
 
     private void WindowsServiceOnOnInitialize()
     {
-      WindowService.RegisterWindow(this);
+      Init();
       WindowsService.OnInitialize -= WindowsServiceOnOnInitialize;
+    }
+
+    public override void Init()
+    {
+      if (_isInitialized)
+        return;
+      WindowService = WindowsService.Instance;
+      WindowService.RegisterWindow(this);
+      _isInitialized = true;
     }
 
     private void AnimActionInit()

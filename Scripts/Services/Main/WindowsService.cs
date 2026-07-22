@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using WindowsSystem.Log;
 using WindowsSystem.Providers;
 using WindowsSystem.Resolver;
@@ -28,11 +29,23 @@ namespace WindowsSystem
       Instance = this;
       _windowsProvider = resolver.Resolve<IWindowsProvider>();
       QueueController = new WindowsQueueController(this);
+      SceneManager.sceneLoaded += SceneManagerOnsceneLoaded;
       OnInitialize?.Invoke();
     }
 
-    
-    
+    ~WindowsService()
+    {
+      SceneManager.sceneLoaded -= SceneManagerOnsceneLoaded;
+    }
+
+    private void SceneManagerOnsceneLoaded(Scene arg0, LoadSceneMode arg1)
+    {
+      foreach (var windowBaseInterlayer in Object.FindObjectsByType<WindowBaseInterlayer>(FindObjectsInactive.Include))
+      {
+        windowBaseInterlayer.Init();
+      }
+    }
+
     public Dictionary<Type, IWindowBase> Windows { get; } = new();
     public HashSet<Type> ShownWindows { get; } = new();
     public WindowsQueueController QueueController { get; }
