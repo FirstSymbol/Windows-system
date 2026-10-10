@@ -1,0 +1,281 @@
+.ws-root {
+    --ws-card-bg: rgba(0, 0, 0, 0.18);
+    --ws-card-border: rgba(255, 255, 255, 0.06);
+    --ws-muted: rgba(255, 255, 255, 0.45);
+    --ws-hidden: #6B7280;
+    --ws-showing: #3B82F6;
+    --ws-shown: #22A06B;
+    --ws-hiding: #E08A2E;
+    --ws-warning: #D9A21B;
+    --ws-error: #DC4B4B;
+    --ws-info: #4C8DD9;
+}
+
+.ws-root--light {
+    --ws-card-bg: rgba(0, 0, 0, 0.06);
+    --ws-card-border: rgba(0, 0, 0, 0.08);
+    --ws-muted: rgba(0, 0, 0, 0.5);
+}
+
+/* Card header */
+.ws-card {
+    background-color: var(--ws-card-bg);
+    border-width: 1px;
+    border-color: var(--ws-card-border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin: 4px 0 6px 0;
+}
+
+.ws-card__row {
+    flex-direction: row;
+    align-items: center;
+}
+
+.ws-card__titles {
+    flex-grow: 1;
+    flex-shrink: 1;
+    overflow: hidden;
+}
+
+.ws-card__title {
+    font-size: 14px;
+    -unity-font-style: bold;
+}
+
+.ws-card__subtitle {
+    color: var(--ws-muted);
+    font-size: 11px;
+    white-space: normal;
+}
+
+.ws-card__chips {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-top: 6px;
+}
+
+.ws-card__controls {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 6px;
+}
+
+.ws-card__instant {
+    margin-left: 6px;
+}
+
+.ws-card__instant > Label {
+    min-width: 0;
+    margin-right: 4px;
+}
+
+.ws-card__hint {
+    color: var(--ws-muted);
+    font-size: 11px;
+    margin-top: 4px;
+    -unity-font-style: italic;
+}
+
+/* Badges & chips */
+.ws-badge {
+    padding: 2px 8px;
+    border-radius: 9px;
+    font-size: 11px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    color: #FFFFFF;
+    background-color: var(--ws-hidden);
+    margin: 1px 2px;
+    flex-shrink: 0;
+}
+
+.ws-badge--hidden { background-color: var(--ws-hidden); }
+.ws-badge--showing { background-color: var(--ws-showing); }
+.ws-badge--shown { background-color: var(--ws-shown); }
+.ws-badge--hiding { background-color: var(--ws-hiding); }
+.ws-badge--warning { background-color: var(--ws-warning); }
+.ws-badge--error { background-color: var(--ws-error); }
+.ws-badge--info { background-color: var(--ws-info); }
+.ws-badge--muted {
+    background-color: rgba(128, 128, 128, 0.35);
+}
+
+.ws-chip {
+    font-size: 10px;
+    padding: 1px 6px;
+    margin: 0 4px 2px 0;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: rgba(128, 128, 128, 0.45);
+    -unity-text-align: middle-center;
+}
+
+.ws-chip--good { border-color: var(--ws-shown); color: var(--ws-shown); }
+.ws-chip--warning { border-color: var(--ws-warning); color: var(--ws-warning); }
+.ws-chip--info { border-color: var(--ws-info); color: var(--ws-info); }
+
+/* Buttons */
+.ws-button {
+    min-width: 56px;
+    height: 22px;
+    margin: 2px 4px 2px 0;
+    border-radius: 4px;
+}
+
+.ws-button--small {
+    min-width: 0;
+    height: 18px;
+    font-size: 10px;
+    padding: 0 6px;
+    margin: 0 2px 0 0;
+}
+
+.ws-button--danger {
+    color: var(--ws-error);
+}
+
+/* Sections */
+.ws-section {
+    margin-top: 4px;
+}
+
+.ws-section > Toggle {
+    background-color: var(--ws-card-bg);
+    border-radius: 4px;
+    padding: 2px 4px;
+    margin: 0;
+}
+
+.ws-section > Toggle Label {
+    -unity-font-style: bold;
+}
+
+.ws-section > #unity-content {
+    margin-left: 4px;
+    padding: 4px 2px 2px 8px;
+}
+
+.ws-warnings HelpBox Button {
+    align-self: flex-end;
+}
+
+/* Subclass selector */
+.ws-subclass__foldout > Toggle > VisualElement {
+    flex-grow: 1;
+}
+
+.ws-subclass__button {
+    margin: 0 0 0 auto;
+    min-width: 110px;
+    height: 18px;
+    -unity-text-align: middle-left;
+    border-radius: 4px;
+}
+
+.ws-subclass__empty {
+    color: var(--ws-muted);
+    -unity-font-style: italic;
+    margin: 2px 0;
+}
+
+/* Provider */
+.ws-provider__list {
+    margin-top: 4px;
+    min-height: 60px;
+}
+
+.ws-provider__row {
+    flex-direction: row;
+    align-items: center;
+    height: 24px;
+    padding: 0 4px;
+}
+
+.ws-provider__field {
+    flex-grow: 1;
+    flex-shrink: 1;
+    margin: 0 6px 0 0;
+}
+
+.ws-provider__type {
+    color: var(--ws-muted);
+    width: 140px;
+    overflow: hidden;
+    -unity-text-align: middle-left;
+}
+
+/* Debugger */
+.ws-debugger {
+    flex-grow: 1;
+}
+
+.ws-debugger__search {
+    width: 200px;
+}
+
+.ws-debugger__status {
+    color: var(--ws-muted);
+    -unity-text-align: middle-right;
+    margin-right: 6px;
+}
+
+.ws-debugger__table {
+    flex-grow: 1;
+}
+
+.ws-debugger__cell {
+    -unity-text-align: middle-left;
+    padding-left: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ws-debugger__type {
+    -unity-font-style: bold;
+}
+
+.ws-debugger__muted {
+    color: var(--ws-muted);
+}
+
+.ws-debugger__actions {
+    flex-direction: row;
+    align-items: center;
+    padding-left: 4px;
+}
+
+.ws-debugger__empty {
+    position: absolute;
+    top: 40px;
+    left: 0;
+    right: 0;
+    -unity-text-align: middle-center;
+    color: var(--ws-muted);
+}
+
+.ws-queue {
+    padding: 6px 8px;
+    border-top-width: 1px;
+    border-color: var(--ws-card-border);
+}
+
+.ws-queue__header {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.ws-queue__title {
+    -unity-font-style: bold;
+    font-size: 13px;
+    margin-right: 6px;
+}
+
+.ws-queue__current {
+    padding: 4px 6px;
+    margin-bottom: 4px;
+    border-radius: 4px;
+    background-color: var(--ws-card-bg);
+}

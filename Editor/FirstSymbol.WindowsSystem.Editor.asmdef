@@ -1,0 +1,19 @@
+{
+    "name": "FirstSymbol.WindowsSystem.Editor",
+    "rootNamespace": "WindowsSystem.Editor",
+    "references": [
+        "FirstSymbol.WindowsSystem",
+        "UniTask"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
