@@ -1,22 +1,20 @@
-﻿using Cysharp.Threading.Tasks;
-using WindowsSystem.Scripts.Base.AnimAction;
+using System;
+using System.ComponentModel;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 
-namespace WindowsSystem.Scripts.DefaultPresets.AnimActions
+namespace WindowsSystem.Animations
 {
-  public class InstantHide : HideAction
+  /// <summary>Shows or hides the window immediately.</summary>
+  [Serializable, DisplayName("Instant")]
+  public sealed class InstantAnimation : WindowAnimation
   {
-    public override UniTask Hide(bool isForce = false)
+    public override UniTask Play(WindowAnimationContext context, CancellationToken cancellationToken)
     {
-      gameObject.SetActive(false);
-      return UniTask.CompletedTask;
-    }
-  }
-  
-  public class InstantShow : ShowAction
-  {
-    public override UniTask Show(bool isForce = false)
-    {
-      gameObject.SetActive(true);
+      // Restore the alpha a previous fade may have left behind.
+      if (context.IsShow && context.Window.CanvasGroup != null)
+        context.Window.CanvasGroup.alpha = 1f;
+
       return UniTask.CompletedTask;
     }
   }

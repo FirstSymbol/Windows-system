@@ -1,217 +1,374 @@
-﻿using System;
+using System;
+using System.Threading;
 using Cysharp.Threading.Tasks;
-
-#if ODIN_INSPECTOR
-using Sirenix.OdinInspector;
-#endif
 using UnityEngine;
-using UnityEngine.UI;
-using WindowsSystem.Scripts.Base.AnimAction;
-using WindowsSystem.Scripts.DefaultPresets.AnimActions;
-using Logger = ExtDebugLogger.Logger;
+using WindowsSystem.Animations;
 
 namespace WindowsSystem
 {
-  public abstract class WindowBase<T> : WindowBaseInterlayer, IWindowBase where T : IWindowBase
+  /// <summary>
+  /// Base class for every window. Registers itself automatically and is controlled either directly
+  /// or through <see cref="IWindowsService"/>.
+  /// </summary>
+  [DisallowMultipleComponent]
+  public abstract class WindowBase : MonoBehaviour, IWindow
   {
-    [field: SerializeField] public GraphicRaycaster interactionsParents;
-    
-    [field: SerializeReference] protected ShowAction showAction = new InstantShow();
-    [field: SerializeReference] protected HideAction hideAction = new InstantHide();
-    
-    public Action<Type> OnBeforeShow { get; set; }
-    public Action<Type> OnBeforeHide { get; set; }
-    public Action<Type> OnAfterShow { get; set; }
-    public Action<Type> OnAfterHide { get; set; }
-    public Action<Type> OnAfterClose { get; set; }
-    
-    /// <summary>
-    /// True if window is spawned from service.
-    /// </summary>
-    public bool IsSpawned { get; set; } = false;
-    
-    
-    /// <summary>
-    /// True if window is spawned from service.
-    /// </summary>
-    
-    [field: SerializeField] public bool ForceHideOnInit { get; set; } = true;
+    [Tooltip("State applied instantly when the window is initialized.")]
+    [SerializeField] private InitialWindowState initialState = InitialWindowState.Hidden;
 
-#if ODIN_INSPECTOR
-    [ShowInInspector] [ReadOnly] 
-#else
-    [field: SerializeField]    
-#endif
-    public bool IsShowing { get; protected set; }
-#if ODIN_INSPECTOR
-    [ShowInInspector] [ReadOnly] 
-#else
-    [field: SerializeField]    
-#endif
-    public bool IsInteractable => !interactionsParents || interactionsParents.enabled;
-#if ODIN_INSPECTOR
-    [ShowInInspector] [ReadOnly] 
-#else
-    [field: SerializeField]    
-#endif
-    public bool InQueue { get; set; } = false;
-#if ODIN_INSPECTOR
-    [ShowInInspector] [ReadOnly] 
-#else
-    [field: SerializeField]    
-#endif
-    public int QueuePriority { get; protected set; } = 0;
+    [Tooltip("Requests with a higher priority are shown first and preempt lower ones.")]
+    [SerializeField] private int queuePriority;
 
-    public IWindowsService WindowService { get; private set; }
-    
+    [Tooltip("Optional. Used for interactivity, input blocking and fade animations.")]
+    [SerializeField] private CanvasGroup canvasGroup;
+
+    [Tooltip("Ignore input while the window is animating.")]
+    [SerializeField] private bool blockInputDuringTransition = true;
+
+    [Tooltip("Deactivate the GameObject once the window is hidden.")]
+    [SerializeField] private bool deactivateWhenHidden = true;
+
+    [SerializeReference, SubclassSelector] private WindowAnimation showAnimation = new InstantAnimation();
+    [SerializeReference, SubclassSelector] private WindowAnimation hideAnimation = new InstantAnimation();
+
+    [SerializeField] private WindowEvents events = new();
+
+    private CancellationTokenSource _transitionCts;
+    private UniTask _transition = UniTask.CompletedTask;
+    private int _transitionId;
+    private bool _initialized;
+    private bool _interactable = true;
+    private bool _restPoseCaptured;
+    private WindowRestPose _restPose;
+
+    public WindowState State { get; private set; } = WindowState.Hidden;
+    public bool IsVisible => State.IsVisible();
+    public bool IsInitialized => _initialized;
+    public bool IsAlive => this != null;
+
+    /// <summary>True if the window was instantiated by <see cref="IWindowsService"/>.</summary>
+    public bool IsSpawned { get; internal set; }
+
+    /// <summary>Service the window is attached to. Null until a service is created.</summary>
+    public IWindowsService Service { get; internal set; }
+
+    public bool InQueue => Service != null && Service.Queue.Contains(this);
+
+    public int QueuePriority
+    {
+      get => queuePriority;
+      set => queuePriority = value;
+    }
+
+    public InitialWindowState InitialState
+    {
+      get => initialState;
+      set => initialState = value;
+    }
+
+    public bool DeactivateWhenHidden
+    {
+      get => deactivateWhenHidden;
+      set => deactivateWhenHidden = value;
+    }
+
+    public bool BlockInputDuringTransition
+    {
+      get => blockInputDuringTransition;
+      set
+      {
+        blockInputDuringTransition = value;
+        ApplyInputState();
+      }
+    }
+
+    public WindowAnimation ShowAnimation
+    {
+      get => showAnimation;
+      set => showAnimation = value;
+    }
+
+    public WindowAnimation HideAnimation
+    {
+      get => hideAnimation;
+      set => hideAnimation = value;
+    }
+
+    public CanvasGroup CanvasGroup => canvasGroup;
+    public RectTransform RectTransform => transform as RectTransform;
+    public WindowEvents Events => events;
+
+    /// <summary>
+    /// Whether the window accepts input while shown. Requires a <see cref="CanvasGroup"/>.
+    /// </summary>
+    public bool Interactable
+    {
+      get => _interactable;
+      set
+      {
+        _interactable = value;
+        ApplyInputState();
+      }
+    }
+
+    /// <summary>Pose of the fully shown window used by animations.</summary>
+    public WindowRestPose RestPose
+    {
+      get
+      {
+        if (!_restPoseCaptured)
+          CaptureRestPose();
+        return _restPose;
+      }
+    }
+
+    public event Action<IWindow> StateChanged;
+    public event Action<WindowBase> Closed;
+
+    protected virtual void Reset()
+    {
+      canvasGroup = GetComponent<CanvasGroup>();
+    }
+
     protected virtual void Awake()
     {
-      AnimActionInit();
-      WindowService = WindowsService.Instance;
-      if (WindowService == null)
-        WindowsService.OnInitialize += WindowsServiceOnOnInitialize;
+      Initialize();
+    }
+
+    protected virtual void OnDestroy()
+    {
+      CancelTransition();
+      if (State != WindowState.Hidden)
+        SetState(WindowState.Hidden, invokeCallbacks: false);
+      WindowTracker.Remove(this);
+    }
+
+    /// <summary>
+    /// Registers the window and applies its initial state. Runs automatically in Awake;
+    /// the service also calls it for windows that start inactive.
+    /// </summary>
+    public void Initialize()
+    {
+      if (_initialized || !IsAlive)
+        return;
+
+      _initialized = true;
+      if (canvasGroup == null)
+        canvasGroup = GetComponent<CanvasGroup>();
+
+      CaptureRestPose();
+      WindowTracker.Add(this);
+      StartTransition(initialState == InitialWindowState.Shown, true, CancellationToken.None, silent: true).Forget();
+      OnInitialized();
+    }
+
+    /// <summary>Stores the current transform as the shown pose used by animations.</summary>
+    public void CaptureRestPose()
+    {
+      _restPose = WindowRestPose.Capture(transform);
+      _restPoseCaptured = true;
+    }
+
+    /// <summary>Moves the window and makes the new position its rest position.</summary>
+    public void MoveTo(Vector2 anchoredPosition)
+    {
+      if (RectTransform != null)
+        RectTransform.anchoredPosition = anchoredPosition;
       else
-        WindowsServiceOnOnInitialize();
+        transform.localPosition = new Vector3(anchoredPosition.x, anchoredPosition.y, transform.localPosition.z);
 
-      AwakeAction();
+      WindowRestPose pose = RestPose;
+      pose.anchoredPosition = anchoredPosition;
+      pose.localPosition = transform.localPosition;
+      _restPose = pose;
     }
 
-    private void WindowsServiceOnOnInitialize()
+    public UniTask ShowAsync(bool instant = false, CancellationToken cancellationToken = default)
     {
-      Init();
-      WindowsService.OnInitialize -= WindowsServiceOnOnInitialize;
+      if (!IsAlive)
+        return UniTask.CompletedTask;
+
+      Initialize();
+      if (State == WindowState.Shown)
+        return UniTask.CompletedTask;
+      if (State == WindowState.Showing && !instant)
+        return _transition;
+
+      return StartTransition(true, instant, cancellationToken);
     }
 
-    public async override void Init()
+    public UniTask HideAsync(bool instant = false, CancellationToken cancellationToken = default)
     {
-      if (_isInitialized || gameObject == null)
+      if (!IsAlive)
+        return UniTask.CompletedTask;
+
+      Initialize();
+      if (State == WindowState.Hidden)
+        return UniTask.CompletedTask;
+      if (State == WindowState.Hiding && !instant)
+        return _transition;
+
+      return StartTransition(false, instant, cancellationToken);
+    }
+
+    public UniTask ToggleAsync(bool instant = false, CancellationToken cancellationToken = default) =>
+      IsVisible ? HideAsync(instant, cancellationToken) : ShowAsync(instant, cancellationToken);
+
+    /// <summary>Hides the window and destroys its GameObject.</summary>
+    public async UniTask CloseAsync(bool instant = false, CancellationToken cancellationToken = default)
+    {
+      if (!IsAlive)
         return;
-      WindowService = WindowsService.Instance;
-      WindowService.RegisterWindow(this);
-      if (ForceHideOnInit) await Hide(true, true);
-      else await Show(true, true);
-      _isInitialized = true;
-    }
 
-    private void AnimActionInit()
-    {
-      hideAction ??= new InstantHide();
-      showAction ??= new InstantShow();
-      showAction.gameObject ??= gameObject;
-      hideAction.gameObject ??= gameObject;
-    }
-
-    protected virtual void Start()
-    {
-      StartAction();
-    }
-    
-    private void OnDestroy()
-    {
-      WindowService ??= WindowsService.Instance;
-      WindowService.UnregisterWindow(this);
-      DestroyAction();
-    }
-    
-#if ODIN_INSPECTOR
-    [FoldoutGroup("Base Buttons")]
-    [Button("Show window")]
-#endif
-    public async UniTask Show(bool isForce = false, bool showIfAlreadyShowed = false)
-    {
-      if (!showIfAlreadyShowed && IsShowing)
+      await HideAsync(instant, cancellationToken);
+      if (!IsAlive || cancellationToken.IsCancellationRequested)
         return;
-      OnBeforeShow?.Invoke(GetType());
-      await showAction.Show(isForce);
-      IsShowing = true;
-      OnAfterShow?.Invoke(GetType());
-    }
 
-#if ODIN_INSPECTOR
-    [FoldoutGroup("Base Buttons")]
-    [Button("Hide window")]
-#endif
-    public async UniTask Hide(bool isForce = false, bool hideIfAlreadyHidden = false)
-    {
-      if (!hideIfAlreadyHidden && !IsShowing)
-        return;
-      OnBeforeHide?.Invoke(GetType());
-      await hideAction.Hide(isForce);
-      IsShowing = false;
-      OnAfterHide?.Invoke(GetType());
-    }
-    
-#if ODIN_INSPECTOR
-    [FoldoutGroup("Base Buttons")]
-    [Button("Close window")]
-#endif
-    public async UniTask Close(bool isForce = false)
-    {
-      await hideAction.Hide(isForce);
-      OnAfterClose?.Invoke(GetType());
+      OnClosed();
+      Closed?.Invoke(this);
       Destroy(gameObject);
     }
-    
-#if ODIN_INSPECTOR
-    [FoldoutGroup("Base Buttons")]
-    [Button]
-#endif
-    public void AddInQueue(bool hideIfFirstEntry = false, bool hideForce = false)
+
+    /// <summary>Adds the window to the service queue.</summary>
+    public bool Enqueue(int? priority = null)
     {
-      WindowService.QueueController.AddWindowInQueue(this, hideIfFirstEntry, hideForce);
-    }
-    
-    public async UniTask Toggle(bool isForce = false)
-    {
-      if (IsShowing)
-        await Hide(isForce);
-      else
-        await Show(isForce);
+      if (Service == null)
+      {
+        WindowsLog.Error($"'{name}' is not attached to a WindowsService and cannot be queued.", this);
+        return false;
+      }
+
+      return Service.Queue.Enqueue(this, priority);
     }
 
-    /// <summary>
-    ///   Enable interaction GraphicRaycaster component.
-    /// </summary>
-#if ODIN_INSPECTOR
-    [FoldoutGroup("Interaction Buttons")]
-    [Button("Enable Interaction")]
-#endif
-    public void EnableInteract()
+    protected virtual void OnInitialized() { }
+    protected virtual void OnShowing() { }
+    protected virtual void OnShown() { }
+    protected virtual void OnHiding() { }
+    protected virtual void OnHidden() { }
+    protected virtual void OnClosed() { }
+
+    private UniTask StartTransition(bool show, bool instant, CancellationToken cancellationToken, bool silent = false)
     {
-      if (interactionsParents) interactionsParents.enabled = true;
+      // Bump the id first so the cancelled transition recognizes it was superseded.
+      int id = ++_transitionId;
+      CancelTransition();
+
+      _transitionCts = cancellationToken.CanBeCanceled
+        ? CancellationTokenSource.CreateLinkedTokenSource(destroyCancellationToken, cancellationToken)
+        : CancellationTokenSource.CreateLinkedTokenSource(destroyCancellationToken);
+
+      _transition = RunTransition(id, show, instant, silent, _transitionCts.Token).Preserve();
+      return _transition;
     }
 
-    /// <summary>
-    ///   Disable interaction GraphicRaycaster component.
-    /// </summary>
-#if ODIN_INSPECTOR
-    [FoldoutGroup("Interaction Buttons")]
-    [Button("Disable Interaction")]
-#endif
-    public void DisableInteract()
+    private async UniTask RunTransition(int id, bool show, bool instant, bool silent, CancellationToken token)
     {
-      if (interactionsParents) interactionsParents.enabled = false;
+      WindowState previous = State;
+      WindowAnimation animation = show ? showAnimation : hideAnimation;
+
+      if (show && !gameObject.activeSelf)
+        gameObject.SetActive(true);
+
+      SetState(show ? WindowState.Showing : WindowState.Hiding, !silent);
+      if (id != _transitionId)
+        return;
+
+      try
+      {
+        if (animation != null)
+          await animation.Play(new WindowAnimationContext(this, show, instant, previous), token);
+      }
+      catch (OperationCanceledException)
+      {
+        // Handled below through the token state.
+      }
+      catch (Exception exception)
+      {
+        WindowsLog.Error($"'{name}' animation failed: {exception}", this);
+      }
+
+      if (id != _transitionId || !IsAlive)
+        return; // Superseded by another transition or destroyed.
+
+      if (token.IsCancellationRequested)
+      {
+        // Cancelled by the caller: finish instantly so the window is never left half-animated.
+        animation?.Play(new WindowAnimationContext(this, show, true, previous), CancellationToken.None).Forget();
+        Complete(show, silent);
+        throw new OperationCanceledException(token);
+      }
+
+      Complete(show, silent);
     }
 
-    /// <summary>
-    ///   Toggle interaction GraphicRaycaster component.
-    /// </summary>
-#if ODIN_INSPECTOR
-    [FoldoutGroup("Interaction Buttons")]
-    [Button("Toggle Interaction")]
-#endif
-    public void ToggleInteract()
+    private void Complete(bool show, bool silent)
     {
-      if (interactionsParents) interactionsParents.enabled = !interactionsParents.enabled;
-    }
-    protected virtual async void AwakeAction()
-    {
+      if (show)
+      {
+        SetState(WindowState.Shown, !silent);
+        return;
+      }
+
+      SetState(WindowState.Hidden, !silent);
+      if (deactivateWhenHidden && IsAlive && State == WindowState.Hidden)
+        gameObject.SetActive(false);
     }
 
-    protected virtual async void StartAction()
+    private void CancelTransition()
     {
+      if (_transitionCts == null)
+        return;
+
+      _transitionCts.Cancel();
+      _transitionCts.Dispose();
+      _transitionCts = null;
     }
 
-    protected virtual void DestroyAction() { }
+    private void SetState(WindowState state, bool invokeCallbacks = true)
+    {
+      if (State == state)
+        return;
+
+      State = state;
+      ApplyInputState();
+
+      if (invokeCallbacks)
+      {
+        switch (state)
+        {
+          case WindowState.Showing:
+            OnShowing();
+            events?.onShowing?.Invoke();
+            break;
+          case WindowState.Shown:
+            OnShown();
+            events?.onShown?.Invoke();
+            break;
+          case WindowState.Hiding:
+            OnHiding();
+            events?.onHiding?.Invoke();
+            break;
+          case WindowState.Hidden:
+            OnHidden();
+            events?.onHidden?.Invoke();
+            break;
+        }
+      }
+
+      StateChanged?.Invoke(this);
+    }
+
+    private void ApplyInputState()
+    {
+      if (canvasGroup == null)
+        return;
+
+      bool acceptsInput = State == WindowState.Shown ||
+                          (State.IsTransitioning() && !blockInputDuringTransition);
+
+      canvasGroup.blocksRaycasts = acceptsInput;
+      canvasGroup.interactable = acceptsInput && _interactable;
+    }
   }
 }

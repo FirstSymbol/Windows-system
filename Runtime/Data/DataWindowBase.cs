@@ -1,41 +1,58 @@
-﻿using System.Collections.Generic;
-using TriInspector;
+using System.Threading;
+using Cysharp.Threading.Tasks;
+using UnityEngine;
 
 namespace WindowsSystem
 {
-  [DeclareFoldoutGroup("Pool Buttons")]
-  public abstract class PooledWindowBase<TWindow, TData> : WindowBase<TWindow>, IPooledWindow
-    where TWindow : IWindowBase
+  /// <summary>
+  /// A window that displays a data payload. One instance can be shown many times with different data,
+  /// including several queued requests with their own data.
+  /// </summary>
+  public abstract class DataWindowBase<TData> : WindowBase
   {
-    protected abstract IDictionary<int, TData> WindowData { get; }
-    protected abstract TData DefaultData { get; set; }
+    [Tooltip("Rebind DefaultData once the window is hidden.")]
+    [SerializeField] private bool resetToDefaultWhenHidden;
 
-    protected abstract void ExtractAction(in TData data);
+    /// <summary>Data currently bound to the window.</summary>
+    public TData Data { get; private set; }
 
-    [Button]
-    [Group("Pool Buttons")]
-    public void ExtractData(int index = -1, bool removeAfterExtract = false)
+    /// <summary>Data bound by <see cref="ResetToDefault"/>.</summary>
+    protected virtual TData DefaultData => default;
+
+    /// <summary>Applies data to the window visuals.</summary>
+    protected abstract void Bind(TData data);
+
+    public void SetData(TData data)
     {
-      if (WindowData.TryGetValue(index, out TData data))
+      Data = data;
+      Bind(data);
+    }
+
+    public void ResetToDefault() => SetData(DefaultData);
+
+    public UniTask ShowAsync(TData data, bool instant = false, CancellationToken cancellationToken = default)
+    {
+      SetData(data);
+      return ShowAsync(instant, cancellationToken);
+    }
+
+    /// <summary>Queues the window with its own data. The data is bound right before the window is shown.</summary>
+    public bool Enqueue(TData data, int? priority = null)
+    {
+      if (Service == null)
       {
-        ExtractAction(in data);
-        if (removeAfterExtract) 
-          RemoveData(index);
+        WindowsLog.Error($"'{name}' is not attached to a WindowsService and cannot be queued.", this);
+        return false;
       }
-    }
-    
-    [Button]
-    [Group("Pool Buttons")]
-    public void ReturnToDefault() => ExtractAction(DefaultData);
-    
-    [Button]
-    [Group("Pool Buttons")]
-    public void AddInQueue(int index, bool removeAfterExtract, bool returnToDefault = true, bool hideIfFirstEntry = true, bool hideForce = false)
-    {
-      WindowService.QueueController.AddWindowInQueue(this, index, removeAfterExtract,  returnToDefault, hideIfFirstEntry, hideForce);
+
+      return Service.Queue.Enqueue(this, data, priority);
     }
 
-    protected virtual void RemoveData(int value) => 
-      WindowData.Remove(value);
+    protected override void OnHidden()
+    {
+      base.OnHidden();
+      if (resetToDefaultWhenHidden)
+        ResetToDefault();
+    }
   }
 }
