@@ -47,7 +47,7 @@ namespace WindowsSystem.Editor
       var toolbar = new VisualElement();
       toolbar.AddToClassList("ws-card__controls");
       toolbar.Add(CreateButton("Find window prefabs", FindAllPrefabs));
-      toolbar.Add(CreateButton("Remove empty & duplicates", Cleanup));
+      toolbar.Add(CreateButton("Remove empty & duplicates", RemoveEmptyAndDuplicates));
       card.Add(toolbar);
       root.Add(card);
 
@@ -254,7 +254,7 @@ namespace WindowsSystem.Editor
       return added;
     }
 
-    private void Cleanup()
+    private void RemoveEmptyAndDuplicates()
     {
       serializedObject.Update();
       var seen = new HashSet<Type>();
