@@ -166,6 +166,40 @@ WindowsLog.Handler = (type, message, context) => ExtDebugLogger.Logger.Log(messa
 (Play Mode) with their state, scene, queue flags and Show / Hide / Toggle / Queue / Ping buttons,
 plus the queue panel (current request, pending requests with priorities and data, Skip / Clear / Stop).
 
+## Window layouts
+
+Slots are named places for windows ("Center Popup", "Left Panel", "Toast"...) defined once in a
+**Window Layout Library** (*Create → Windows System → Window Layout Library*). Windows are placed into slots
+instead of being positioned in every prefab, and stay there when the screen is resized.
+
+1. Add **Window Layout Root** to the object that contains your windows (e.g. a full-screen child of the Canvas)
+   and assign the library. Windows use the nearest root in their parents, otherwise the most recently enabled one.
+2. Pick a **Default Slot** in a window's *Layout* section — it is applied when the window initializes.
+3. Or move windows from code:
+
+```csharp
+window.MoveToSlot("Center Popup");                       // id or name
+window.MoveToSlot(MainLayoutSlots.LeftPanel, animate: true); // generated constants
+await windows.ShowInSlotAsync<SettingsWindow>("Right Panel");
+await windows.OpenInSlotAsync<RewardPopup>("Center Popup");
+windows.TileVisible(WindowTilingMode.Grid);              // Horizontal, Vertical, Grid, MainAndStack, Cascade, Center, Maximize
+```
+
+A slot is an area of the root (normalized anchors + padding) and a size mode:
+*Stretch* (fill the area), *Fixed* (size clamped to the area, placed by alignment) or *Fit Aspect*
+(largest rect of an aspect, optionally limited). Every slot can have a separate **portrait placement** used when the
+root is taller than wide. The root respects `Screen.safeArea` (optional) and re-applies placements on resize.
+Windows are placed by anchors, so their own content keeps adapting normally.
+
+**Editor:**
+- *Library inspector* — a mock screen with presets (16:9, 21:9, 4:3, 1:1, 3:4, 9:16, 9:19.5) and a simulated safe
+  area; click a slot and drag its area or edges; a *Tiling* view shows every tiling mode for 1–8 windows;
+  *Generate C# constants* writes a class with the slot ids.
+- *Layout Root inspector* — place the selected windows (or all windows under the root) into a slot or tile them in
+  Edit Mode; *Revert preview* restores the previous layout exactly. Slots are drawn in the Scene View.
+- *Window inspector* — default slot dropdown and slot preview buttons.
+- *Debugger* — slot column and *Tile visible* menu.
+
 ## Upgrading from 0.x
 
 See [MIGRATION.md](MIGRATION.md).

@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.1.0]
+
+### Added
+- Window layouts: `WindowLayoutLibrary` with named slots (stretch / fixed / fit-aspect, padding, alignment,
+  portrait placement), `WindowLayoutRoot` (safe area, re-layout on resize, animated moves) and a default slot per window.
+- Tiling: Horizontal, Vertical, Grid, MainAndStack, Cascade, Center, Maximize.
+- `MoveToSlot`, `ShowInSlotAsync`, `OpenInSlotAsync`, `TileVisible`.
+- Editor: library preview on screen presets with draggable slots and tiling preview, C# constants generation,
+  Edit Mode slot/tiling preview with revert, Scene View slot gizmos, slot dropdown, debugger slot column.
+- Tests for slot and tiling math.
+
 ## [1.0.0]
 
 Rewrite. See [MIGRATION.md](MIGRATION.md).
