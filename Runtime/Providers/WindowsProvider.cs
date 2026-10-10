@@ -1,43 +1,58 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 
 namespace WindowsSystem.Providers
 {
-  [CreateAssetMenu(fileName = "WindowsProvider Config", menuName = "Configs/Providers/WindowsSystem/WindowsProvider",
-    order = 0)]
-  public class WindowsProvider : ScriptableObject, IWindowsProvider
+  /// <summary>Provider that keeps direct references to window prefabs.</summary>
+  [CreateAssetMenu(fileName = "WindowsProvider", menuName = "Windows System/Windows Provider", order = 0)]
+  public sealed class WindowsProvider : ScriptableObject, IWindowsProvider
   {
-    public List<GameObject> windowsObjects;
-    private Dictionary<Type, IWindowBase> _windows = new();
+    [SerializeField] private List<WindowBase> windows = new();
 
-    private void OnEnable()
+    private Dictionary<Type, WindowBase> _lookup;
+
+    public IReadOnlyList<WindowBase> Windows => windows;
+
+    public UniTask<WindowBase> GetPrefabAsync(Type windowType, CancellationToken cancellationToken = default) =>
+      UniTask.FromResult(GetPrefab(windowType));
+
+    public T GetPrefab<T>() where T : WindowBase => GetPrefab(typeof(T)) as T;
+
+    public WindowBase GetPrefab(Type windowType)
     {
-      BuildDictionary();
+      if (windowType == null)
+        return null;
+
+      EnsureLookup();
+      return _lookup.TryGetValue(windowType, out WindowBase prefab) ? prefab : null;
     }
 
-    private void OnValidate()
-    {
-      BuildDictionary();
-    }
+    public bool Contains(Type windowType) => GetPrefab(windowType) != null;
 
-    public T GetWindowPrefab<T>() where T : MonoBehaviour, IWindowBase
-    {
-      return _windows[typeof(T)] as T;
-    }
+    private void OnEnable() => _lookup = null;
 
-    private void BuildDictionary()
+    private void OnValidate() => _lookup = null;
+
+    private void EnsureLookup()
     {
-      windowsObjects = windowsObjects.Distinct().ToList();
-      _windows ??= new Dictionary<Type, IWindowBase>();
-      _windows.Clear();
-      for (var i = 0; i < windowsObjects.Count; i++)
+      if (_lookup != null)
+        return;
+
+      _lookup = new Dictionary<Type, WindowBase>();
+      if (windows == null)
+        return;
+
+      foreach (WindowBase prefab in windows)
       {
-        if (windowsObjects[i] == null) continue;
-        if (windowsObjects[i].TryGetComponent(out IWindowBase window))
-          _windows.Add(window.GetType(), window);
-        else windowsObjects[i] = null;
+        if (prefab == null)
+          continue;
+
+        Type type = prefab.GetType();
+        if (!_lookup.TryAdd(type, prefab))
+          WindowsLog.Warning($"{name}: '{type.Name}' is listed more than once, '{prefab.name}' is ignored.", this);
       }
     }
   }

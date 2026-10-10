@@ -1,287 +1,326 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using WindowsSystem.Log;
 using WindowsSystem.Providers;
-using WindowsSystem.Resolver;
-using Logger = ExtDebugLogger.Logger;
 using Object = UnityEngine.Object;
 
 namespace WindowsSystem
 {
-  public class WindowsService : IWindowsService
+  /// <summary>
+  /// Central access point to windows. Create one instance (usually through a DI container) and
+  /// dispose it when it is no longer needed. Windows attach themselves automatically.
+  /// </summary>
+  public sealed class WindowsService : IWindowsService, IDisposable
   {
-    public static IWindowsService Instance { get; private set; }
-    public static event Action OnInitialize;
-    public RectTransform defaultSpawnParent;
-    private IWindowsProvider _windowsProvider;
+    private static readonly List<WindowsService> ActiveServices = new();
 
-    
-    
-    public WindowsService(IDependencyResolver resolver)
+    private readonly Dictionary<Type, WindowBase> _windows = new();
+    private readonly List<WindowBase> _attached = new();
+    private readonly IWindowsProvider _provider;
+    private bool _disposed;
+
+    public WindowsService(IWindowsProvider provider = null, RectTransform defaultParent = null)
     {
-      if (Instance != null)
-      {
-        throw new InvalidOperationException("Duplicate WindowsService detected!");
-      }
-      Instance = this;
-      _windowsProvider = resolver.Resolve<IWindowsProvider>();
-      QueueController = new WindowsQueueController(this);
-      SceneManager.sceneUnloaded += SceneManagerOnsceneUnloaded;
-      SceneManager.sceneLoaded += SceneManagerOnsceneLoaded;
-      OnInitialize?.Invoke();
+      _provider = provider;
+      DefaultParent = defaultParent;
+      Queue = new WindowsQueue(type => Get(type));
+
+      ActiveServices.Add(this);
+      if (ActiveServices.Count > 1)
+        WindowsLog.Warning("More than one WindowsService is alive. Windows attach to the latest one.");
+
+      WindowTracker.Added += Attach;
+      WindowTracker.Removed += Detach;
+      SceneManager.sceneLoaded += OnSceneLoaded;
+      SceneManager.sceneUnloaded += OnSceneUnloaded;
+
+      for (int i = 0; i < SceneManager.sceneCount; i++)
+        InitializeInactiveWindows(SceneManager.GetSceneAt(i));
+
+      foreach (WindowBase window in WindowTracker.Alive)
+        Attach(window);
     }
 
-    private void SceneManagerOnsceneUnloaded(Scene arg0)
+    /// <summary>Services that are alive (used by editor tooling).</summary>
+    internal static IReadOnlyList<WindowsService> Active => ActiveServices;
+
+    public IReadOnlyCollection<WindowBase> Windows => _windows.Values;
+
+    /// <summary>All windows attached to this service, including additional instances of a registered type.</summary>
+    public IReadOnlyList<WindowBase> AttachedWindows => _attached;
+
+    public WindowsQueue Queue { get; }
+    public RectTransform DefaultParent { get; set; }
+    public IWindowsProvider Provider => _provider;
+
+    public event Action<WindowBase> WindowRegistered;
+    public event Action<WindowBase> WindowUnregistered;
+    public event Action<WindowBase> WindowStateChanged;
+
+    #region Lookup
+
+    public TWindow Get<TWindow>() where TWindow : WindowBase => Get(typeof(TWindow)) as TWindow;
+
+    public WindowBase Get(Type windowType)
     {
-      foreach (var windowsKey in new List<Type>(Windows.Keys))
-      {
-        UnregisterWindow(windowsKey);
-      }
-    }
-
-    ~WindowsService()
-    {
-      SceneManager.sceneUnloaded -= SceneManagerOnsceneUnloaded;
-      SceneManager.sceneLoaded -= SceneManagerOnsceneLoaded;
-    }
-
-    private void SceneManagerOnsceneLoaded(Scene arg0, LoadSceneMode arg1)
-    {
-      foreach (var windowBaseInterlayer in Object.FindObjectsByType<WindowBaseInterlayer>(FindObjectsInactive.Include))
-      {
-        windowBaseInterlayer.Init();
-      }
-    }
-
-    public Dictionary<Type, IWindowBase> Windows { get; } = new();
-    public HashSet<Type> ShownWindows { get; } = new();
-    public WindowsQueueController QueueController { get; }
-
-    #region Infrastructure
-
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    private static void ResetStatics()
-    {
-      Instance = null;
-    }
-
-    #endregion
-    
-    #region Registering
-
-    public void RegisterWindow(IWindowBase window)
-    {
-      if (!Windows.TryAdd(window.GetType(), window))
-      {
-        Logger.Error($"Window is already exist.",WSLogTag.WindowsService);
-        return;
-      }
-      window.OnAfterHide += OnAfterWindowHide;
-      window.OnAfterShow += OnAfterShow;
-      Logger.Log($"Registering window of type {window.GetType().ToString().Split('.')[^1]}", WSLogTag.WindowsService);
-      
-    }
-    
-    public void RegisterWindow<T>(WindowBase<T> window) where T : IWindowBase
-    {
-      if (!Windows.TryAdd(typeof(T), window))
-      {
-        Logger.Error($"Window is already exist.",WSLogTag.WindowsService);
-        return;
-      }
-      window.OnAfterHide += OnAfterWindowHide;
-      window.OnAfterShow += OnAfterShow;
-      Logger.Log($"Registering window of type {typeof(T).ToString().Split('.')[^1]}", WSLogTag.WindowsService);
-    }
-
-    public void UnregisterWindow(Type type)
-    {
-      if (type.GetInterface(nameof(IWindowBase)) ==  null)
-        return;
-
-      if (Windows.TryGetValue(type, out var window))
-      {
-        if (!Windows.Remove(type))
-          return;
-        window.OnAfterHide -= OnAfterWindowHide;
-        window.OnAfterShow -= OnAfterShow;
-        Logger.Log($"Unregistering window of type {type.ToString().Split('.')[^1]}", WSLogTag.WindowsService);
-      }
-      
-    }
-    
-    public void UnregisterWindow<T>(WindowBase<T> window) where T : IWindowBase
-    {
-      UnregisterWindow(typeof(T));
-    }
-
-    private void OnAfterShow(Type windowType)
-    {
-      ShownWindows.Add(windowType);
-    }
-
-    private void OnAfterWindowHide(Type windowType)
-    {
-      ShownWindows.Remove(windowType);
-    }
-
-    #endregion
-
-    #region Storage
-
-    public IWindowBase GetWindow(Type type)
-    {
-      return Windows.GetValueOrDefault(type);
-    }
-
-    public TWindow GetWindow<TWindow>() where TWindow : class, IWindowBase
-    {
-      if (Windows.TryGetValue(typeof(TWindow), out var window))
-        return window as TWindow;
+      if (windowType != null && _windows.TryGetValue(windowType, out WindowBase window) && window != null)
+        return window;
       return null;
     }
 
-    public bool TryGetWindow(Type type, out IWindowBase window)
+    public bool TryGet<TWindow>(out TWindow window) where TWindow : WindowBase
     {
-      return Windows.TryGetValue(type, out window);
-    }
-
-    public bool TryGetWindow(Type type, out IPooledWindow window)
-    {
-      Windows.TryGetValue(type, out var nativeWindow);
-      window = nativeWindow as IPooledWindow;
+      window = Get<TWindow>();
       return window != null;
     }
 
-    public bool TryGetWindow<TWindow>(out TWindow window) where TWindow : class, IWindowBase
+    public bool TryGet(Type windowType, out WindowBase window)
     {
-      if (Windows.TryGetValue(typeof(TWindow), out var value))
-      {
-        window = value as TWindow;
-        return true;
-      }
-
-      window = null;
-      return false;
+      window = Get(windowType);
+      return window != null;
     }
 
-    public bool ExistWindow(Type type)
-    {
-      return Windows.ContainsKey(type);
-    }
+    public bool IsRegistered<TWindow>() where TWindow : WindowBase => Get(typeof(TWindow)) != null;
 
-    #endregion
-
-    #region Spawn & Destroy
-
-    public TWindow SpawnWindow<TWindow>(Vector2 anchoredPosition, RectTransform parent)
-      where TWindow : MonoBehaviour, IWindowBase
-    {
-      var windowPrefab = _windowsProvider.GetWindowPrefab<TWindow>();
-      if (windowPrefab == null)
-      {
-        Logger.Warn("Could not find window prefab in windowsProvider.", WSLogTag.WindowsService);
-        return null;
-      }
-
-      parent ??= defaultSpawnParent;
-      
-      var window = Object.Instantiate(windowPrefab, anchoredPosition, Quaternion.identity, parent);
-      window.GetComponent<RectTransform>().anchoredPosition = anchoredPosition;
-      window.IsSpawned = true;
-
-      return window;
-    }
-
-    public async UniTask<TWindow> OpenWindow<TWindow>(Vector2 anchoredPosition, RectTransform parent, bool forceHideOnInit = true)
-      where TWindow : MonoBehaviour, IWindowBase
-    {
-      var window = SpawnWindow<TWindow>(anchoredPosition, parent);
-      window.gameObject.SetActive(false);
-
-      if (window == null)
-        return window;
-
-      window.ForceHideOnInit = forceHideOnInit;
-      await window.Hide(true);
-      window.Show().Forget();
-
-      return window;
-    }
-
-    public bool CloseWindow(Type type)
-    {
-      Logger.Log($"Trying to close {type.Name} window!", WSLogTag.WindowsService);
-      if (Windows.TryGetValue(type, out var window))
-      {
-        window.Close();
-        return true;
-      }
-
-      return false;
-    }
-
-    public bool CloseWindow<T>() where T : IWindowBase
-    {
-      return CloseWindow(typeof(T));
-    }
+    public bool IsRegistered(Type windowType) => Get(windowType) != null;
 
     #endregion
 
     #region Show & Hide
 
-    public async UniTask<bool> ShowWindow(Type type)
+    public UniTask<bool> ShowAsync<TWindow>(bool instant = false, CancellationToken cancellationToken = default)
+      where TWindow : WindowBase => ShowAsync(typeof(TWindow), instant, cancellationToken);
+
+    public async UniTask<bool> ShowAsync(Type windowType, bool instant = false,
+      CancellationToken cancellationToken = default)
     {
-      if (Windows.TryGetValue(type, out var window))
+      WindowBase window = GetOrLog(windowType);
+      if (window == null)
+        return false;
+
+      await window.ShowAsync(instant, cancellationToken);
+      return true;
+    }
+
+    public UniTask<bool> HideAsync<TWindow>(bool instant = false, CancellationToken cancellationToken = default)
+      where TWindow : WindowBase => HideAsync(typeof(TWindow), instant, cancellationToken);
+
+    public async UniTask<bool> HideAsync(Type windowType, bool instant = false,
+      CancellationToken cancellationToken = default)
+    {
+      WindowBase window = GetOrLog(windowType);
+      if (window == null)
+        return false;
+
+      await window.HideAsync(instant, cancellationToken);
+      return true;
+    }
+
+    public UniTask<bool> ToggleAsync<TWindow>(bool instant = false, CancellationToken cancellationToken = default)
+      where TWindow : WindowBase => ToggleAsync(typeof(TWindow), instant, cancellationToken);
+
+    public async UniTask<bool> ToggleAsync(Type windowType, bool instant = false,
+      CancellationToken cancellationToken = default)
+    {
+      WindowBase window = GetOrLog(windowType);
+      if (window == null)
+        return false;
+
+      await window.ToggleAsync(instant, cancellationToken);
+      return true;
+    }
+
+    public UniTask<bool> CloseAsync<TWindow>(bool instant = false, CancellationToken cancellationToken = default)
+      where TWindow : WindowBase => CloseAsync(typeof(TWindow), instant, cancellationToken);
+
+    public async UniTask<bool> CloseAsync(Type windowType, bool instant = false,
+      CancellationToken cancellationToken = default)
+    {
+      WindowBase window = GetOrLog(windowType);
+      if (window == null)
+        return false;
+
+      await window.CloseAsync(instant, cancellationToken);
+      return true;
+    }
+
+    public UniTask HideAllAsync(bool instant = false, CancellationToken cancellationToken = default)
+    {
+      var tasks = new List<UniTask>();
+      foreach (WindowBase window in _attached)
       {
-        await window.Show();
-        return true;
+        if (window != null && window.IsVisible)
+          tasks.Add(window.HideAsync(instant, cancellationToken));
       }
 
-      return false;
-    }
-
-    public async UniTask<bool> HideWindow(Type type)
-    {
-      if (Windows.TryGetValue(type, out var window))
-      {
-        await window.Hide();
-        return true;
-      }
-
-      return false;
-    }
-
-    public UniTask<bool> ToggleWindow(Type type)
-    {
-      if (Windows.TryGetValue(type, out var window))
-      {
-        window.Toggle();
-        return UniTask.FromResult(true);
-      }
-
-      return UniTask.FromResult(false);
-    }
-
-    public UniTask<bool> ShowWindow<T>() where T : IWindowBase
-    {
-      return ShowWindow(typeof(T));
-    }
-
-    public UniTask<bool> HideWindow<T>() where T : IWindowBase
-    {
-      return HideWindow(typeof(T));
-    }
-
-    public async UniTask<bool> ToggleWindow<T>() where T : IWindowBase
-    {
-      return await ToggleWindow(typeof(T));
+      return UniTask.WhenAll(tasks);
     }
 
     #endregion
+
+    #region Spawn
+
+    public async UniTask<TWindow> SpawnAsync<TWindow>(RectTransform parent = null, Vector2? anchoredPosition = null,
+      CancellationToken cancellationToken = default) where TWindow : WindowBase
+    {
+      if (_provider == null)
+      {
+        WindowsLog.Error($"Cannot spawn '{typeof(TWindow).Name}': the service has no IWindowsProvider.");
+        return null;
+      }
+
+      var prefab = await _provider.GetPrefabAsync(typeof(TWindow), cancellationToken) as TWindow;
+      if (cancellationToken.IsCancellationRequested)
+        return null;
+      if (prefab == null)
+      {
+        WindowsLog.Error($"Cannot spawn '{typeof(TWindow).Name}': the provider has no prefab for it.");
+        return null;
+      }
+
+      RectTransform targetParent = parent != null ? parent : DefaultParent;
+      if (targetParent == null)
+        WindowsLog.Warning($"'{typeof(TWindow).Name}' is spawned without a parent and may not be visible.");
+
+      TWindow window = Object.Instantiate(prefab, targetParent, false);
+      window.IsSpawned = true;
+      if (anchoredPosition.HasValue)
+        window.MoveTo(anchoredPosition.Value);
+
+      // Inactive prefabs skip Awake; initialization attaches the window through the tracker.
+      window.Initialize();
+      return window;
+    }
+
+    public async UniTask<TWindow> OpenAsync<TWindow>(RectTransform parent = null, Vector2? anchoredPosition = null,
+      bool instant = false, CancellationToken cancellationToken = default) where TWindow : WindowBase
+    {
+      TWindow window = await SpawnAsync<TWindow>(parent, anchoredPosition, cancellationToken);
+      if (window != null && !cancellationToken.IsCancellationRequested)
+        await window.ShowAsync(instant, cancellationToken);
+      return window;
+    }
+
+    #endregion
+
+    public void Dispose()
+    {
+      if (_disposed)
+        return;
+
+      _disposed = true;
+      ActiveServices.Remove(this);
+      WindowTracker.Added -= Attach;
+      WindowTracker.Removed -= Detach;
+      SceneManager.sceneLoaded -= OnSceneLoaded;
+      SceneManager.sceneUnloaded -= OnSceneUnloaded;
+
+      Queue.Dispose();
+      foreach (WindowBase window in _attached)
+      {
+        if (window == null)
+          continue;
+
+        window.StateChanged -= OnWindowStateChanged;
+        if (window.Service == this)
+          window.Service = null;
+      }
+
+      _attached.Clear();
+      _windows.Clear();
+    }
+
+    private void Attach(WindowBase window)
+    {
+      if (_disposed || window == null || _attached.Contains(window))
+        return;
+
+      if (!window.IsInitialized)
+      {
+        // Initialization adds the window to the tracker, which calls Attach again.
+        window.Initialize();
+        return;
+      }
+
+      _attached.Add(window);
+      window.Service = this;
+      window.StateChanged += OnWindowStateChanged;
+      TryRegister(window);
+    }
+
+    private void Detach(WindowBase window)
+    {
+      if (!_attached.Remove(window))
+        return;
+
+      window.StateChanged -= OnWindowStateChanged;
+      Queue.Remove(window);
+
+      Type type = window.GetType();
+      if (!_windows.TryGetValue(type, out WindowBase registered) || !ReferenceEquals(registered, window))
+        return;
+
+      _windows.Remove(type);
+      WindowsLog.Info($"Unregistered '{type.Name}'.");
+      WindowUnregistered?.Invoke(window);
+
+      // Promote another live instance of the same type, if any.
+      foreach (WindowBase other in _attached)
+      {
+        if (other != null && other.GetType() == type)
+        {
+          TryRegister(other);
+          break;
+        }
+      }
+    }
+
+    private void TryRegister(WindowBase window)
+    {
+      Type type = window.GetType();
+      if (_windows.TryGetValue(type, out WindowBase existing) && existing != null && existing != window)
+      {
+        WindowsLog.Info($"'{type.Name}' is already registered by '{existing.name}'. " +
+                        $"'{window.name}' is attached but not reachable by type.", window);
+        return;
+      }
+
+      _windows[type] = window;
+      WindowsLog.Info($"Registered '{type.Name}'.", window);
+      WindowRegistered?.Invoke(window);
+    }
+
+    private WindowBase GetOrLog(Type windowType)
+    {
+      WindowBase window = Get(windowType);
+      if (window == null)
+        WindowsLog.Warning($"No registered window of type '{windowType?.Name}'.");
+      return window;
+    }
+
+    private void OnWindowStateChanged(IWindow window) => WindowStateChanged?.Invoke((WindowBase)window);
+
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode) => InitializeInactiveWindows(scene);
+
+    private void OnSceneUnloaded(Scene scene) => WindowTracker.PurgeDestroyed();
+
+    /// <summary>Windows on inactive objects never run Awake, so initialize them explicitly.</summary>
+    private static void InitializeInactiveWindows(Scene scene)
+    {
+      if (!scene.isLoaded)
+        return;
+
+      foreach (GameObject root in scene.GetRootGameObjects())
+      {
+        foreach (WindowBase window in root.GetComponentsInChildren<WindowBase>(true))
+          window.Initialize();
+      }
+    }
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics() => ActiveServices.Clear();
   }
 }

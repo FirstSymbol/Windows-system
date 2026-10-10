@@ -1,38 +1,63 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
-using WindowsSystem.Providers;
 
 namespace WindowsSystem
 {
-    public interface IWindowsService
-    {
-        public Dictionary<Type, IWindowBase> Windows { get; }
-        public WindowsQueueController QueueController { get; }
-        public HashSet<Type> ShownWindows { get; }
-        public void RegisterWindow<T>(WindowBase<T> windowType) where T : IWindowBase;
-        public void UnregisterWindow<T>(WindowBase<T> windowType) where T : IWindowBase;
-    
-        public IWindowBase GetWindow(Type type);
-        public TWindow GetWindow<TWindow>() where TWindow : class, IWindowBase;
-        public bool TryGetWindow(Type type, out IWindowBase window);
-        public bool TryGetWindow(Type type, out IPooledWindow window);
-        public bool TryGetWindow<TWindow>(out TWindow window) where TWindow : class, IWindowBase;
-        public bool ExistWindow(Type type);
-    
-        public TWindow SpawnWindow<TWindow>(Vector2 anchoredPosition, RectTransform parent)
-            where TWindow : MonoBehaviour, IWindowBase;
-        public UniTask<TWindow> OpenWindow<TWindow>(Vector2 anchoredPosition, RectTransform parent, bool forceHideOnInit = true)
-            where TWindow : MonoBehaviour, IWindowBase;
-        public bool CloseWindow(Type type);
-        public bool CloseWindow<T>() where T : IWindowBase;
-    
-        public UniTask<bool> ShowWindow(Type type);
-        public UniTask<bool> HideWindow(Type type);
-        public UniTask<bool> ToggleWindow(Type type);
-        public UniTask<bool> ShowWindow<T>() where T : IWindowBase;
-        public UniTask<bool> HideWindow<T>() where T : IWindowBase;
-        public UniTask<bool> ToggleWindow<T>() where T : IWindowBase;
-    }
+  public interface IWindowsService
+  {
+    /// <summary>Registered windows, one per window type.</summary>
+    IReadOnlyCollection<WindowBase> Windows { get; }
+
+    WindowsQueue Queue { get; }
+
+    /// <summary>Parent used by <see cref="SpawnAsync{TWindow}"/> when none is passed.</summary>
+    RectTransform DefaultParent { get; set; }
+
+    event Action<WindowBase> WindowRegistered;
+    event Action<WindowBase> WindowUnregistered;
+    event Action<WindowBase> WindowStateChanged;
+
+    TWindow Get<TWindow>() where TWindow : WindowBase;
+    WindowBase Get(Type windowType);
+    bool TryGet<TWindow>(out TWindow window) where TWindow : WindowBase;
+    bool TryGet(Type windowType, out WindowBase window);
+    bool IsRegistered<TWindow>() where TWindow : WindowBase;
+    bool IsRegistered(Type windowType);
+
+    /// <returns>False if no window of the type is registered.</returns>
+    UniTask<bool> ShowAsync<TWindow>(bool instant = false, CancellationToken cancellationToken = default)
+      where TWindow : WindowBase;
+
+    UniTask<bool> ShowAsync(Type windowType, bool instant = false, CancellationToken cancellationToken = default);
+
+    UniTask<bool> HideAsync<TWindow>(bool instant = false, CancellationToken cancellationToken = default)
+      where TWindow : WindowBase;
+
+    UniTask<bool> HideAsync(Type windowType, bool instant = false, CancellationToken cancellationToken = default);
+
+    UniTask<bool> ToggleAsync<TWindow>(bool instant = false, CancellationToken cancellationToken = default)
+      where TWindow : WindowBase;
+
+    UniTask<bool> ToggleAsync(Type windowType, bool instant = false, CancellationToken cancellationToken = default);
+
+    /// <summary>Hides and destroys the registered window of the type.</summary>
+    UniTask<bool> CloseAsync<TWindow>(bool instant = false, CancellationToken cancellationToken = default)
+      where TWindow : WindowBase;
+
+    UniTask<bool> CloseAsync(Type windowType, bool instant = false, CancellationToken cancellationToken = default);
+
+    /// <summary>Hides every visible window.</summary>
+    UniTask HideAllAsync(bool instant = false, CancellationToken cancellationToken = default);
+
+    /// <summary>Instantiates the window prefab from the provider. The window keeps its initial state.</summary>
+    UniTask<TWindow> SpawnAsync<TWindow>(RectTransform parent = null, Vector2? anchoredPosition = null,
+      CancellationToken cancellationToken = default) where TWindow : WindowBase;
+
+    /// <summary>Instantiates the window prefab and shows it.</summary>
+    UniTask<TWindow> OpenAsync<TWindow>(RectTransform parent = null, Vector2? anchoredPosition = null,
+      bool instant = false, CancellationToken cancellationToken = default) where TWindow : WindowBase;
+  }
 }
