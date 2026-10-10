@@ -1,10 +1,8 @@
 {
-    "name": "WindowsSystem",
-    "rootNamespace": "",
+    "name": "FirstSymbol.WindowsSystem",
+    "rootNamespace": "WindowsSystem",
     "references": [
-        "TriInspector",
-        "UniTask",
-        "ExtDebugLogger"
+        "UniTask"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
