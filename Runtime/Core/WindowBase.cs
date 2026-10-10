@@ -3,6 +3,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using WindowsSystem.Animations;
+using WindowsSystem.Layouts;
 
 namespace WindowsSystem
 {
@@ -31,6 +32,9 @@ namespace WindowsSystem
     [SerializeReference, SubclassSelector] private WindowAnimation showAnimation = new InstantAnimation();
     [SerializeReference, SubclassSelector] private WindowAnimation hideAnimation = new InstantAnimation();
 
+    [Tooltip("Slot of the Window Layout Root the window is placed into when initialized. Empty = keep the prefab layout.")]
+    [SerializeField] private WindowSlotRef defaultSlot;
+
     [SerializeField] private WindowEvents events = new();
 
     private CancellationTokenSource _transitionCts;
@@ -40,6 +44,7 @@ namespace WindowsSystem
     private bool _interactable = true;
     private bool _restPoseCaptured;
     private WindowRestPose _restPose;
+    private CancellationTokenSource _layoutMoveCts;
 
     public WindowState State { get; private set; } = WindowState.Hidden;
     public bool IsVisible => State.IsVisible();
@@ -94,6 +99,19 @@ namespace WindowsSystem
       set => hideAnimation = value;
     }
 
+    /// <summary>Slot applied on initialization (see <see cref="WindowLayoutRoot"/>).</summary>
+    public WindowSlotRef DefaultSlot
+    {
+      get => defaultSlot;
+      set => defaultSlot = value;
+    }
+
+    /// <summary>Layout root used by this window (nearest in parents, otherwise the main one).</summary>
+    public WindowLayoutRoot LayoutRoot => WindowLayoutRoot.FindFor(this);
+
+    /// <summary>Id of the slot the window is placed in, or null.</summary>
+    public string SlotId => LayoutRoot != null ? LayoutRoot.GetSlotId(this) : null;
+
     public CanvasGroup CanvasGroup => canvasGroup;
     public RectTransform RectTransform => transform as RectTransform;
     public WindowEvents Events => events;
@@ -138,6 +156,8 @@ namespace WindowsSystem
     protected virtual void OnDestroy()
     {
       CancelTransition();
+      CancelLayoutMove();
+      WindowLayoutRoot.ReleaseEverywhere(this);
       if (State != WindowState.Hidden)
         SetState(WindowState.Hidden, invokeCallbacks: false);
       WindowTracker.Remove(this);
@@ -156,6 +176,9 @@ namespace WindowsSystem
       if (canvasGroup == null)
         canvasGroup = GetComponent<CanvasGroup>();
 
+      if (!defaultSlot.IsEmpty)
+        WindowLayoutRoot.PlaceDefault(this);
+
       CaptureRestPose();
       WindowTracker.Add(this);
       StartTransition(initialState == InitialWindowState.Shown, true, CancellationToken.None, silent: true).Forget();
@@ -167,6 +190,35 @@ namespace WindowsSystem
     {
       _restPose = WindowRestPose.Capture(transform);
       _restPoseCaptured = true;
+    }
+
+    /// <summary>Places the window into a slot of its layout root (by reference, id or name).</summary>
+    public bool MoveToSlot(WindowSlotRef slot, bool animate = false)
+    {
+      WindowLayoutRoot root = LayoutRoot;
+      if (root == null)
+      {
+        WindowsLog.Warning($"'{name}' cannot move to slot '{slot}': no WindowLayoutRoot found.", this);
+        return false;
+      }
+
+      return root.Place(this, slot, animate);
+    }
+
+    internal CancellationToken BeginLayoutMove()
+    {
+      CancelLayoutMove();
+      _layoutMoveCts = CancellationTokenSource.CreateLinkedTokenSource(destroyCancellationToken);
+      return _layoutMoveCts.Token;
+    }
+
+    internal void CancelLayoutMove()
+    {
+      if (_layoutMoveCts == null)
+        return;
+      _layoutMoveCts.Cancel();
+      _layoutMoveCts.Dispose();
+      _layoutMoveCts = null;
     }
 
     /// <summary>Moves the window and makes the new position its rest position.</summary>
