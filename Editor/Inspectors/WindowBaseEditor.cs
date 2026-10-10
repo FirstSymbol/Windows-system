@@ -6,6 +6,7 @@ using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 using WindowsSystem.Animations;
+using WindowsSystem.Layouts;
 
 namespace WindowsSystem.Editor
 {
@@ -22,7 +23,7 @@ namespace WindowsSystem.Editor
     private static readonly string[] EventFields = { "onShowing", "onShown", "onHiding", "onHidden" };
 
     private static readonly HashSet<string> BaseFields =
-      new(BehaviourFields.Concat(AnimationFields).Append("events").Append("m_Script"));
+      new(BehaviourFields.Concat(AnimationFields).Append("events").Append("m_Script").Append("defaultSlot"));
 
     private Label _badge;
     private VisualElement _chips;
@@ -48,6 +49,8 @@ namespace WindowsSystem.Editor
       Foldout behaviour = WindowsEditorUtility.CreateSection("Behaviour", "Behaviour");
       AddFields(behaviour, BehaviourFields);
       root.Add(behaviour);
+
+      root.Add(CreateLayoutSection());
 
       Foldout animations = WindowsEditorUtility.CreateSection("Animations", "Animations");
       AddFields(animations, AnimationFields);
@@ -235,6 +238,54 @@ namespace WindowsSystem.Editor
 
       serializedObject.Update();
       UpdateWarnings();
+    }
+
+    private VisualElement CreateLayoutSection()
+    {
+      Foldout layout = WindowsEditorUtility.CreateSection("Layout", "Layout");
+      layout.Add(new PropertyField(serializedObject.FindProperty("defaultSlot")));
+
+      var window = (WindowBase)target;
+      WindowLayoutRoot layoutRoot = WindowLayoutEditorUtility.FindRoot(window);
+      WindowLayoutLibrary library = layoutRoot != null ? layoutRoot.Library : null;
+      if (layoutRoot == null || library == null)
+      {
+        var hint = new Label(layoutRoot == null
+          ? "Add a Window Layout Root to a parent (e.g. the Canvas) to place windows into slots."
+          : "The Window Layout Root has no library.");
+        hint.AddToClassList("ws-card__hint");
+        layout.Add(hint);
+        return layout;
+      }
+
+      var label = new Label("Preview in slot");
+      label.AddToClassList("ws-card__hint");
+      layout.Add(label);
+      var buttons = new VisualElement();
+      buttons.AddToClassList("ws-card__controls");
+      foreach (WindowSlot slot in library.Slots.Where(s => s != null))
+      {
+        WindowSlot captured = slot;
+        var button = new Button(() =>
+        {
+          if (Application.isPlaying)
+            foreach (WindowBase w in Windows)
+              w.MoveToSlot(new WindowSlotRef(captured.Id, captured.name), animate: true);
+          else
+            WindowLayoutEditorPreview.PreviewSlot(layoutRoot, Windows.ToList(), captured);
+        }) { text = slot.name };
+        button.AddToClassList("ws-button");
+        button.AddToClassList("ws-button--small");
+        button.style.borderLeftWidth = 4;
+        button.style.borderLeftColor = slot.color;
+        buttons.Add(button);
+      }
+
+      layout.Add(buttons);
+      var revert = new Button(WindowLayoutEditorPreview.Revert) { text = "Revert preview" };
+      revert.AddToClassList("ws-button");
+      layout.Add(revert);
+      return layout;
     }
 
     private void AddFields(VisualElement container, IEnumerable<string> names)

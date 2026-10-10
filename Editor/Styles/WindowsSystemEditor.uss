@@ -279,3 +279,8 @@
     border-radius: 4px;
     background-color: var(--ws-card-bg);
 }
+
+.ws-button--active {
+    background-color: var(--ws-info);
+    color: #FFFFFF;
+}

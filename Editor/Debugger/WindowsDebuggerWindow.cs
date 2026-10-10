@@ -106,6 +106,16 @@ namespace WindowsSystem.Editor
       _status.AddToClassList("ws-debugger__status");
       toolbar.Add(_status);
 
+      var tile = new ToolbarMenu { text = "Tile visible" };
+      tile.AddToClassList("ws-play-only");
+      foreach (Layouts.WindowTilingMode mode in Enum.GetValues(typeof(Layouts.WindowTilingMode)))
+      {
+        Layouts.WindowTilingMode captured = mode;
+        tile.menu.AppendAction(ObjectNames.NicifyVariableName(mode.ToString()),
+          _ => { if (GetService() is { } service) Layouts.WindowLayoutExtensions.TileVisible(service, captured); });
+      }
+
+      toolbar.Add(tile);
       toolbar.Add(new ToolbarButton(() => GetService()?.HideAllAsync(_instant).Forget()) { text = "Hide all" });
       toolbar.Add(new ToolbarButton(RefreshRows) { text = "Refresh" });
       return toolbar;
@@ -146,6 +156,12 @@ namespace WindowsSystem.Editor
         name = "scene", title = "Scene", width = 100, minWidth = 60,
         makeCell = () => CellLabel("ws-debugger__muted"),
         bindCell = (element, index) => ((Label)element).text = _rows[index] != null ? _rows[index].gameObject.scene.name : string.Empty
+      });
+      table.columns.Add(new Column
+      {
+        name = "slot", title = "Slot", width = 100, minWidth = 50,
+        makeCell = () => CellLabel("ws-debugger__muted"),
+        bindCell = (element, index) => ((Label)element).text = SlotName(_rows[index])
       });
       table.columns.Add(new Column
       {
@@ -206,6 +222,17 @@ namespace WindowsSystem.Editor
       Add("Queue", w => w.Enqueue());
       Add("Ping", w => EditorGUIUtility.PingObject(w.gameObject), playOnly: false);
       return container;
+    }
+
+    private static string SlotName(WindowBase window)
+    {
+      if (window == null)
+        return string.Empty;
+      string id = Application.isPlaying ? window.SlotId : null;
+      if (string.IsNullOrEmpty(id))
+        return window.DefaultSlot.IsEmpty ? "—" : window.DefaultSlot.name;
+      Layouts.WindowLayoutLibrary library = window.LayoutRoot != null ? window.LayoutRoot.Library : null;
+      return library != null && library.Find(id) is { } slot ? slot.name : id;
     }
 
     private static void BindState(Label badge, WindowBase window)
